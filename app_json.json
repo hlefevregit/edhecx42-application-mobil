@@ -1,0 +1,56 @@
+{
+  "expo": {
+    "name": "FoodApp",
+    "slug": "food-app-mvp",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#2ecc71"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.foodapp.mvp",
+      "infoPlist": {
+        "NSCameraUsageDescription": "L'application a besoin d'accéder à la caméra pour scanner les codes-barres des produits alimentaires.",
+        "NSLocationWhenInUseUsageDescription": "L'application utilise votre position pour calculer le temps passé en magasin, avec votre consentement explicite (RGPD).",
+        "NSMotionUsageDescription": "L'application utilise les capteurs de mouvement pour détecter l'orientation du téléphone et activer automatiquement le scanner."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#2ecc71"
+      },
+      "package": "com.foodapp.mvp",
+      "permissions": [
+        "CAMERA",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Permet de scanner les codes-barres des produits."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Permet de calculer le temps passé en magasin (avec votre consentement)."
+        }
+      ]
+    ]
+  }
+}
