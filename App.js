@@ -15,6 +15,8 @@ import ProfileScreen from './screens/ProfileScreen';
 import BarcodeScannerScreen from './screens/BarcodeScannerScreen';
 import ProductDetailScreen from './screens/ProductDetailScreen';
 import FridgeScreen from './screens/FridgeScreen';
+import RecipesScreen from './screens/RecipesScreen';
+import notificationService from './services/notificationService';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -55,6 +57,13 @@ export default function App() {
       setUser(currentUser);
       setLoading(false);
     });
+    if (user) {
+    notificationService.initialize(user.uid);
+  }
+  
+  return () => {
+    notificationService.cleanup();
+  };
     return unsubscribe;
   }, []);
 
@@ -70,6 +79,7 @@ export default function App() {
             <Stack.Screen name="BarcodeScanner" component={BarcodeScannerScreen} />
             <Stack.Screen name="ProductDetail" component={ProductDetailScreen} options={{ headerShown: true, title: 'Détails du produit' }} />
             <Stack.Screen name="Fridge" component={FridgeScreen} />
+            <Stack.Screen name="Recipes" component={RecipesScreen} options={{ headerShown: false }} />
           </>
         ) : (
           <>

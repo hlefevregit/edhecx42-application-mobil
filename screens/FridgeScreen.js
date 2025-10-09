@@ -18,6 +18,7 @@ import { auth, db } from '../firebaseConfig';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 
+
 const FridgeScreenV2 = ({ navigation }) => {
   const [fridgeItems, setFridgeItems] = useState([]);
   const [showCamera, setShowCamera] = useState(false);
@@ -27,6 +28,14 @@ const FridgeScreenV2 = ({ navigation }) => {
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
 
   const userId = auth.currentUser?.uid;
+
+  <TouchableOpacity
+  style={styles.recipesButton}
+  onPress={() => navigation.navigate('Recipes')}
+>
+  <Ionicons name="restaurant" size={24} color="#fff" />
+  <Text style={styles.recipesButtonText}>Voir les recettes</Text>
+</TouchableOpacity>
 
   useEffect(() => {
     loadFridgeItems();
