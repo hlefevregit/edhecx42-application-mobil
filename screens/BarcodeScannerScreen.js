@@ -147,7 +147,8 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   overlay: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'transparent',
   },
   topOverlay: {
     flex: 1,

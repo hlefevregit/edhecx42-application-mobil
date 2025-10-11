@@ -5,7 +5,7 @@ import * as FileSystem from 'expo-file-system';
 // 1. Aller sur https://console.cloud.google.com
 // 2. Activer "Cloud Vision API"
 // 3. Créer des identifiants (clé API)
-const GOOGLE_VISION_API_KEY = 'VOTRE_CLE_API_ICI';
+const GOOGLE_VISION_API_KEY = 'AIzaSyDLSO-InziWAzffyj9K8Sgj2Gb1S0JBsLE';
 
 // Alternative gratuite : Clarifai Food Model
 const CLARIFAI_API_KEY = 'VOTRE_CLE_CLARIFAI_ICI';
@@ -18,13 +18,19 @@ class VisionService {
   // Convertir image en base64
   async imageToBase64(imageUri) {
     try {
+      // Vérifier que FileSystem est disponible
+      if (!FileSystem || !FileSystem.EncodingType) {
+        console.log('FileSystem non disponible, utilisation simulation');
+        return null;
+      }
+
       const base64 = await FileSystem.readAsStringAsync(imageUri, {
         encoding: FileSystem.EncodingType.Base64,
       });
       return base64;
     } catch (error) {
       console.error('Erreur conversion base64:', error);
-      throw error;
+      return null;
     }
   }
 
@@ -287,7 +293,7 @@ class VisionService {
     if (this.useGoogleVision) {
       return GOOGLE_VISION_API_KEY !== 'AIzaSyDLSO-InziWAzffyj9K8Sgj2Gb1S0JBsLE';
     } else {
-      return CLARIFAI_API_KEY !== 'VOTRE_CLE_CLARIFAI_ICI';
+      return CLARIFAI_API_KEY !== 'NULL';
     }
   }
 }

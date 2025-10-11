@@ -9,57 +9,62 @@ import {
   Alert
 } from 'react-native';
 import { DeviceMotion } from 'expo-sensors';
-import { Camera } from 'expo-camera';
+import { useCameraPermissions } from 'expo-camera';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../firebaseConfig';
 import { Ionicons } from '@expo/vector-icons';
+import { useIsFocused } from '@react-navigation/native';
 
 const HomeScreen = ({ navigation }) => {
   const [shoppingList, setShoppingList] = useState([]);
   const [newItem, setNewItem] = useState('');
   const [isFlat, setIsFlat] = useState(false);
-  const [showScanner, setShowScanner] = useState(false);
-  const [hasPermission, setHasPermission] = useState(null);
+  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   
   const userId = auth.currentUser?.uid;
+  const isFocused = useIsFocused(); // Détecte si on est sur cet écran
 
-  // Charger la liste de courses
   useEffect(() => {
     loadShoppingList();
   }, []);
 
-  // Détecter l'orientation du téléphone
+  // Détecter orientation UNIQUEMENT si on est sur cet écran
   useEffect(() => {
     let subscription;
 
     const checkOrientation = async () => {
+      if (!isFocused) return; // Ne marche QUE sur cette page
+
       const isAvailable = await DeviceMotion.isAvailableAsync();
       if (!isAvailable) return;
 
       subscription = DeviceMotion.addListener(({ rotation }) => {
-        // Détecter si le téléphone est à plat (perpendiculaire au sol)
-        // rotation.beta proche de 0 = téléphone à plat
-        const beta = rotation.beta;
-        const isDeviceFlat = Math.abs(beta) < 0.3; // Seuil ajustable
+        // Téléphone perpendiculaire au sol = beta proche de 1.57 (90°)
+        const beta = Math.abs(rotation.beta);
+        const isDeviceFlat = beta > 1.3 && beta < 1.8; // 75° à 105°
         
-        if (isDeviceFlat && !isFlat) {
+        if (isDeviceFlat && !isFlat && isFocused) {
           setIsFlat(true);
-          activateScanner();
+          activateScannerAuto();
         } else if (!isDeviceFlat && isFlat) {
           setIsFlat(false);
-          setShowScanner(false);
         }
       });
 
-      DeviceMotion.setUpdateInterval(500); // Mise à jour toutes les 500ms
+      DeviceMotion.setUpdateInterval(300);
     };
 
-    checkOrientation();
+    if (isFocused) {
+      checkOrientation();
+    }
 
     return () => {
-      subscription?.remove();
+      if (subscription) {
+        subscription.remove();
+      }
+      setIsFlat(false);
     };
-  }, [isFlat]);
+  }, [isFocused, isFlat]);
 
   const loadShoppingList = async () => {
     if (!userId) return;
@@ -123,27 +128,20 @@ const HomeScreen = ({ navigation }) => {
     saveShoppingList(newList);
   };
 
-  const activateScanner = async () => {
-    const { status } = await Camera.requestCameraPermissionsAsync();
-    setHasPermission(status === 'granted');
-    
-    if (status === 'granted') {
-      setShowScanner(true);
-      Alert.alert(
-        'Mode Scan Activé',
-        'Votre téléphone est à plat. Le scanner est maintenant actif !',
-        [
-          {
-            text: 'Scanner',
-            onPress: () => navigation.navigate('BarcodeScanner')
-          },
-          {
-            text: 'Annuler',
-            style: 'cancel'
-          }
-        ]
-      );
+  // Activation auto du scanner SANS confirmation
+  const activateScannerAuto = async () => {
+    if (!cameraPermission?.granted) {
+      const { granted } = await requestCameraPermission();
+      if (!granted) {
+        Alert.alert('Permission refusée', 'Accès caméra nécessaire pour scanner');
+        setIsFlat(false);
+        return;
+      }
     }
+
+    // Ouvrir DIRECTEMENT le scanner
+    navigation.navigate('BarcodeScanner');
+    setIsFlat(false); // Reset pour éviter les réouvertures
   };
 
   const renderItem = ({ item }) => (
@@ -174,7 +172,7 @@ const HomeScreen = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      {/* Header avec profil */}
+      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>Ma Liste de Courses</Text>
         <TouchableOpacity
@@ -185,12 +183,13 @@ const HomeScreen = ({ navigation }) => {
         </TouchableOpacity>
       </View>
 
-      {/* Indicateur d'orientation */}
+      {/* Indicateur scan auto VISIBLE */}
       {isFlat && (
-        <View style={styles.flatIndicator}>
-          <Ionicons name="scan-outline" size={20} color="#fff" />
-          <Text style={styles.flatIndicatorText}>
-            Mode scan activé - Téléphone à plat détecté
+        <View style={styles.scanningIndicator}>
+          <View style={styles.pulseCircle} />
+          <Ionicons name="scan" size={24} color="#fff" />
+          <Text style={styles.scanningText}>
+            📱 Scan automatique activé...
           </Text>
         </View>
       )}
@@ -216,9 +215,15 @@ const HomeScreen = ({ navigation }) => {
         keyExtractor={item => item.id}
         contentContainerStyle={styles.list}
         ListEmptyComponent={
-          <Text style={styles.emptyText}>
-            Votre liste est vide. Ajoutez des articles !
-          </Text>
+          <View style={styles.emptyContainer}>
+            <Ionicons name="cart-outline" size={80} color="#ddd" />
+            <Text style={styles.emptyText}>
+              Votre liste est vide
+            </Text>
+            <Text style={styles.emptySubtext}>
+              🔄 Tenez le téléphone perpendiculaire pour scanner
+            </Text>
+          </View>
         }
       />
 
@@ -228,7 +233,7 @@ const HomeScreen = ({ navigation }) => {
         onPress={() => navigation.navigate('BarcodeScanner')}
       >
         <Ionicons name="barcode-outline" size={24} color="#fff" />
-        <Text style={styles.scanButtonText}>Scanner un produit</Text>
+        <Text style={styles.scanButtonText}>Scanner manuellement</Text>
       </TouchableOpacity>
     </View>
   );
@@ -256,17 +261,27 @@ const styles = StyleSheet.create({
   profileButton: {
     padding: 5,
   },
-  flatIndicator: {
+  scanningIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#2ecc71',
-    padding: 12,
     justifyContent: 'center',
+    backgroundColor: '#2ecc71',
+    padding: 15,
+    position: 'relative',
   },
-  flatIndicatorText: {
+  pulseCircle: {
+    position: 'absolute',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    // Animation pulse (nécessite Animated API pour vraie animation)
+  },
+  scanningText: {
     color: '#fff',
-    marginLeft: 8,
-    fontWeight: '600',
+    marginLeft: 10,
+    fontWeight: 'bold',
+    fontSize: 16,
   },
   addSection: {
     flexDirection: 'row',
@@ -314,11 +329,21 @@ const styles = StyleSheet.create({
     textDecorationLine: 'line-through',
     color: '#999',
   },
+  emptyContainer: {
+    alignItems: 'center',
+    paddingTop: 60,
+  },
   emptyText: {
-    textAlign: 'center',
+    fontSize: 18,
+    fontWeight: '600',
     color: '#999',
-    fontSize: 16,
-    marginTop: 40,
+    marginTop: 20,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: '#bbb',
+    marginTop: 8,
+    textAlign: 'center',
   },
   scanButton: {
     flexDirection: 'row',

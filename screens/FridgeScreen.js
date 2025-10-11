@@ -7,35 +7,29 @@ import {
   FlatList,
   StyleSheet,
   Alert,
-  Image,
   Modal,
-  ScrollView
+  ScrollView,
+  ActionSheetIOS,
+  Platform
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../firebaseConfig';
 import { Ionicons } from '@expo/vector-icons';
-import axios from 'axios';
+import visionService from '../services/visionService';
 
-
-const FridgeScreenV2 = ({ navigation }) => {
+const FridgeScreen = ({ navigation }) => {
   const [fridgeItems, setFridgeItems] = useState([]);
-  const [showCamera, setShowCamera] = useState(false);
+  const [showPhotoMenu, setShowPhotoMenu] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [detectedItems, setDetectedItems] = useState([]);
-  const [filter, setFilter] = useState('all'); // all, expiring, expired
+  const [filter, setFilter] = useState('all');
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
-
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingItem, setEditingItem] = useState(null);
+  
   const userId = auth.currentUser?.uid;
-
-  <TouchableOpacity
-  style={styles.recipesButton}
-  onPress={() => navigation.navigate('Recipes')}
->
-  <Ionicons name="restaurant" size={24} color="#fff" />
-  <Text style={styles.recipesButtonText}>Voir les recettes</Text>
-</TouchableOpacity>
 
   useEffect(() => {
     loadFridgeItems();
@@ -43,11 +37,11 @@ const FridgeScreenV2 = ({ navigation }) => {
 
   const loadFridgeItems = async () => {
     if (!userId) return;
-
+    
     try {
       const docRef = doc(db, 'fridge_items', userId);
       const docSnap = await getDoc(docRef);
-
+      
       if (docSnap.exists()) {
         setFridgeItems(docSnap.data().items || []);
       }
@@ -58,7 +52,7 @@ const FridgeScreenV2 = ({ navigation }) => {
 
   const saveFridgeItems = async (items) => {
     if (!userId) return;
-
+    
     try {
       const docRef = doc(db, 'fridge_items', userId);
       await updateDoc(docRef, {
@@ -70,43 +64,30 @@ const FridgeScreenV2 = ({ navigation }) => {
     }
   };
 
-  // Reconnaissance IA avec Google Vision API (ou Clarifai Food Model)
-  const analyzeImage = async (imageUri) => {
-    try {
-      // Simulation de reconnaissance IA
-      // En production, utilisez Google Vision API ou Clarifai
-
-      // Pour le MVP V2, on simule la détection
-      const mockDetection = [
-        { name: 'Yaourt', confidence: 0.95, quantity: 4 },
-        { name: 'Lait', confidence: 0.89, quantity: 1 },
-        { name: 'Fromage', confidence: 0.87, quantity: 2 },
-        { name: 'Tomates', confidence: 0.92, quantity: 6 },
-        { name: 'Carottes', confidence: 0.88, quantity: 8 }
-      ];
-
-      // TODO: Vraie implémentation avec Google Vision API
-      /*
-      const response = await axios.post(
-        'https://vision.googleapis.com/v1/images:annotate',
+  // MENU PHOTO CLAIR
+  const openPhotoMenu = () => {
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
         {
-          requests: [{
-            image: { content: base64Image },
-            features: [{ type: 'LABEL_DETECTION', maxResults: 10 }]
-          }]
+          options: ['Annuler', '📷 Prendre une photo', '🖼️ Galerie'],
+          cancelButtonIndex: 0,
         },
-        { headers: { 'Authorization': `Bearer ${GOOGLE_API_KEY}` }}
+        (buttonIndex) => {
+          if (buttonIndex === 1) {
+            takePhotoWithCamera();
+          } else if (buttonIndex === 2) {
+            pickImageFromGallery();
+          }
+        }
       );
-      */
-
-      return mockDetection;
-    } catch (error) {
-      console.error('Erreur analyse image:', error);
-      return [];
+    } else {
+      setShowPhotoMenu(true);
     }
   };
 
   const takePhotoWithCamera = async () => {
+    setShowPhotoMenu(false);
+    
     if (!cameraPermission?.granted) {
       const { granted } = await requestCameraPermission();
       if (!granted) {
@@ -114,12 +95,30 @@ const FridgeScreenV2 = ({ navigation }) => {
         return;
       }
     }
-    setShowCamera(true);
+
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      quality: 0.8,
+    });
+
+    if (!result.canceled) {
+      // CONFIRMATION avant analyse
+      Alert.alert(
+        '📸 Photo prise',
+        'Analyser cette photo pour détecter les aliments ?',
+        [
+          { text: 'Annuler', style: 'cancel' },
+          { text: '✅ Analyser', onPress: () => processImage(result.assets[0].uri) }
+        ]
+      );
+    }
   };
 
   const pickImageFromGallery = async () => {
+    setShowPhotoMenu(false);
+    
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
+    
     if (status !== 'granted') {
       Alert.alert('Permission refusée', 'Accès galerie nécessaire');
       return;
@@ -137,43 +136,39 @@ const FridgeScreenV2 = ({ navigation }) => {
   };
 
   const processImage = async (imageUri) => {
-    setShowCamera(false);
-    Alert.alert('Analyse en cours...', 'Reconnaissance des aliments');
+    Alert.alert('🤖 Analyse en cours...', 'Reconnaissance des aliments');
+    
+    try {
+      const detected = await visionService.analyzeImage(imageUri);
+      
+      if (detected.length === 0) {
+        Alert.alert(
+          'Aucun aliment détecté',
+          'Essayez une photo plus claire',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
 
-    const detected = await analyzeImage(imageUri);
-    setDetectedItems(detected.map((item, index) => ({
-      ...item,
-      id: Date.now() + index,
-      confirmed: true,
-      expiryDate: null,
-      zone: 'Frigo principal'
-    })));
-
-    setShowConfirm(true);
-  };
-
-  const confirmDetection = () => {
-    const newItems = detectedItems
-      .filter(item => item.confirmed)
-      .map(item => ({
-        id: item.id.toString(),
-        name: item.name,
-        quantity: item.quantity,
-        addedAt: new Date(),
-        expiryDate: item.expiryDate,
-        zone: item.zone,
-        imageUrl: null
-      }));
-
-    const updatedItems = [...fridgeItems, ...newItems];
-    setFridgeItems(updatedItems);
-    saveFridgeItems(updatedItems);
-    setShowConfirm(false);
-
-    Alert.alert(
-      'Succès !',
-      `${newItems.length} aliments ajoutés au frigo`
-    );
+      setDetectedItems(detected.map((item, index) => ({
+        ...item,
+        id: Date.now() + index,
+        confirmed: true,
+        expiryDate: '',
+        zone: 'Frigo principal'
+      })));
+      
+      setShowConfirm(true);
+      
+      const isRealAI = visionService.isConfigured();
+      Alert.alert(
+        isRealAI ? '✨ Détection réussie !' : '🎭 Mode Démo',
+        `${detected.length} aliments détectés${!isRealAI ? ' (simulation)' : ''}`
+      );
+    } catch (error) {
+      console.error('Erreur:', error);
+      Alert.alert('Erreur', 'Impossible d\'analyser l\'image');
+    }
   };
 
   const toggleItemConfirmation = (id) => {
@@ -182,10 +177,84 @@ const FridgeScreenV2 = ({ navigation }) => {
     ));
   };
 
-  const updateItemQuantity = (id, quantity) => {
+  const updateDetectedQuantity = (id, quantity) => {
     setDetectedItems(detectedItems.map(item =>
       item.id === id ? { ...item, quantity: parseInt(quantity) || 1 } : item
     ));
+  };
+
+  const confirmDetection = () => {
+    const newItems = detectedItems
+      .filter(item => item.confirmed)
+      .map(item => ({
+        id: Date.now().toString() + Math.random(),
+        name: item.name,
+        quantity: item.quantity,
+        addedAt: new Date(),
+        expiryDate: null,
+        zone: item.zone,
+      }));
+
+    const updatedItems = [...fridgeItems, ...newItems];
+    setFridgeItems(updatedItems);
+    saveFridgeItems(updatedItems);
+    setShowConfirm(false);
+    
+    Alert.alert('Succès !', `${newItems.length} aliments ajoutés`);
+  };
+
+  // MODIFIER UN ALIMENT (DLC + Quantité)
+  const openEditModal = (item) => {
+    setEditingItem({
+      ...item,
+      expiryDateStr: item.expiryDate 
+        ? new Date(item.expiryDate).toISOString().split('T')[0]
+        : ''
+    });
+    setShowEditModal(true);
+  };
+
+  const saveEdit = () => {
+    const updatedItems = fridgeItems.map(item => {
+      if (item.id === editingItem.id) {
+        return {
+          ...item,
+          quantity: editingItem.quantity,
+          expiryDate: editingItem.expiryDateStr 
+            ? new Date(editingItem.expiryDateStr)
+            : null,
+          zone: editingItem.zone
+        };
+      }
+      return item;
+    });
+
+    setFridgeItems(updatedItems);
+    saveFridgeItems(updatedItems);
+    setShowEditModal(false);
+    Alert.alert('✅ Modifié !');
+  };
+
+  // RÉDUIRE QUANTITÉ OU SUPPRIMER
+  const decreaseQuantity = (id) => {
+    const item = fridgeItems.find(i => i.id === id);
+    if (item.quantity > 1) {
+      const updatedItems = fridgeItems.map(i =>
+        i.id === id ? { ...i, quantity: i.quantity - 1 } : i
+      );
+      setFridgeItems(updatedItems);
+      saveFridgeItems(updatedItems);
+    } else {
+      deleteItem(id);
+    }
+  };
+
+  const increaseQuantity = (id) => {
+    const updatedItems = fridgeItems.map(i =>
+      i.id === id ? { ...i, quantity: i.quantity + 1 } : i
+    );
+    setFridgeItems(updatedItems);
+    saveFridgeItems(updatedItems);
   };
 
   const deleteItem = (id) => {
@@ -209,10 +278,8 @@ const FridgeScreenV2 = ({ navigation }) => {
 
   const isExpiringSoon = (expiryDate) => {
     if (!expiryDate) return false;
-    const daysUntilExpiry = Math.floor(
-      (new Date(expiryDate) - new Date()) / (1000 * 60 * 60 * 24)
-    );
-    return daysUntilExpiry <= 3 && daysUntilExpiry >= 0;
+    const days = Math.floor((new Date(expiryDate) - new Date()) / (1000 * 60 * 60 * 24));
+    return days <= 3 && days >= 0;
   };
 
   const isExpired = (expiryDate) => {
@@ -232,13 +299,13 @@ const FridgeScreenV2 = ({ navigation }) => {
   };
 
   const getCategoryIcon = (name) => {
-    const lowerName = name.toLowerCase();
-    if (lowerName.includes('lait') || lowerName.includes('yaourt') || lowerName.includes('fromage')) return '🥛';
-    if (lowerName.includes('viande') || lowerName.includes('poulet')) return '🍖';
-    if (lowerName.includes('poisson')) return '🐟';
-    if (lowerName.includes('fruit') || lowerName.includes('pomme') || lowerName.includes('banane')) return '🍎';
-    if (lowerName.includes('légume') || lowerName.includes('carotte') || lowerName.includes('tomate')) return '🥕';
-    if (lowerName.includes('oeuf')) return '🥚';
+    const lower = name.toLowerCase();
+    if (lower.includes('lait') || lower.includes('yaourt') || lower.includes('fromage')) return '🥛';
+    if (lower.includes('viande') || lower.includes('poulet')) return '🍖';
+    if (lower.includes('poisson')) return '🐟';
+    if (lower.includes('fruit') || lower.includes('pomme') || lower.includes('banane')) return '🍎';
+    if (lower.includes('légume') || lower.includes('carotte') || lower.includes('tomate')) return '🥕';
+    if (lower.includes('oeuf') || lower.includes('œuf')) return '🥚';
     return '🍽️';
   };
 
@@ -258,30 +325,41 @@ const FridgeScreenV2 = ({ navigation }) => {
         isExpiredItem && styles.expiredItem,
         isExpiringSoonItem && styles.expiringItem
       ]}>
-        <View style={styles.itemContent}>
+        <TouchableOpacity 
+          style={styles.itemContent}
+          onPress={() => openEditModal(item)}
+        >
           <Text style={styles.itemIcon}>{getCategoryIcon(item.name)}</Text>
           <View style={styles.itemInfo}>
             <Text style={styles.itemName}>{item.name}</Text>
             <Text style={styles.itemQuantity}>Quantité: {item.quantity}</Text>
             {item.expiryDate && (
               <Text style={[styles.itemExpiry, { color: getExpiryColor(item.expiryDate) }]}>
-                {isExpiredItem ? '⚠️ Périmé' :
+                {isExpiredItem ? '⚠️ Périmé' : 
                  isExpiringSoonItem ? '⚠️ Expire bientôt' :
                  `Expire le ${new Date(item.expiryDate).toLocaleDateString('fr-FR')}`}
               </Text>
             )}
-            {item.zone && (
-              <Text style={styles.itemZone}>📍 {item.zone}</Text>
-            )}
           </View>
-        </View>
-
-        <TouchableOpacity
-          style={styles.deleteButton}
-          onPress={() => deleteItem(item.id)}
-        >
-          <Ionicons name="trash-outline" size={20} color="#e74c3c" />
         </TouchableOpacity>
+        
+        <View style={styles.quantityControls}>
+          <TouchableOpacity
+            style={styles.quantityButton}
+            onPress={() => decreaseQuantity(item.id)}
+          >
+            <Ionicons name="remove" size={18} color="#fff" />
+          </TouchableOpacity>
+          
+          <Text style={styles.quantity}>{item.quantity}</Text>
+          
+          <TouchableOpacity
+            style={styles.quantityButton}
+            onPress={() => increaseQuantity(item.id)}
+          >
+            <Ionicons name="add" size={18} color="#fff" />
+          </TouchableOpacity>
+        </View>
       </View>
     );
   };
@@ -300,7 +378,7 @@ const FridgeScreenV2 = ({ navigation }) => {
         <View style={{ width: 24 }} />
       </View>
 
-      {/* Stats rapides */}
+      {/* Stats */}
       <View style={styles.statsRow}>
         <View style={styles.statCard}>
           <Text style={styles.statNumber}>{fridgeItems.length}</Text>
@@ -348,26 +426,16 @@ const FridgeScreenV2 = ({ navigation }) => {
         </TouchableOpacity>
       </View>
 
-      {/* Boutons scan */}
-      <View style={styles.scanButtons}>
-        <TouchableOpacity
-          style={styles.scanButton}
-          onPress={takePhotoWithCamera}
-        >
-          <Ionicons name="camera" size={24} color="#fff" />
-          <Text style={styles.scanButtonText}>Prendre photo</Text>
-        </TouchableOpacity>
+      {/* BOUTON PHOTO CLAIR */}
+      <TouchableOpacity
+        style={styles.scanButton}
+        onPress={openPhotoMenu}
+      >
+        <Ionicons name="camera" size={24} color="#fff" />
+        <Text style={styles.scanButtonText}>📸 Scanner mon frigo</Text>
+      </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.scanButton, styles.galleryButton]}
-          onPress={pickImageFromGallery}
-        >
-          <Ionicons name="images" size={24} color="#fff" />
-          <Text style={styles.scanButtonText}>Galerie</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Liste des aliments */}
+      {/* Liste */}
       <FlatList
         data={getFilteredItems()}
         renderItem={renderItem}
@@ -385,7 +453,41 @@ const FridgeScreenV2 = ({ navigation }) => {
         }
       />
 
-      {/* Modal confirmation détection */}
+      {/* Menu Photo (Android) */}
+      <Modal
+        visible={showPhotoMenu}
+        animationType="slide"
+        transparent={true}
+      >
+        <View style={styles.menuOverlay}>
+          <View style={styles.menuContent}>
+            <TouchableOpacity
+              style={styles.menuButton}
+              onPress={takePhotoWithCamera}
+            >
+              <Ionicons name="camera" size={32} color="#3498db" />
+              <Text style={styles.menuButtonText}>📷 Prendre une photo</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.menuButton}
+              onPress={pickImageFromGallery}
+            >
+              <Ionicons name="images" size={32} color="#9b59b6" />
+              <Text style={styles.menuButtonText}>🖼️ Galerie</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.menuButton, styles.cancelButton]}
+              onPress={() => setShowPhotoMenu(false)}
+            >
+              <Text style={styles.cancelButtonText}>Annuler</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal Confirmation Détection */}
       <Modal
         visible={showConfirm}
         animationType="slide"
@@ -395,9 +497,6 @@ const FridgeScreenV2 = ({ navigation }) => {
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>
               ✨ {detectedItems.length} aliments détectés
-            </Text>
-            <Text style={styles.modalSubtitle}>
-              Vérifiez et ajustez avant d'ajouter
             </Text>
 
             <ScrollView style={styles.detectedList}>
@@ -426,7 +525,7 @@ const FridgeScreenV2 = ({ navigation }) => {
                   <TextInput
                     style={styles.quantityInput}
                     value={item.quantity.toString()}
-                    onChangeText={(val) => updateItemQuantity(item.id, val)}
+                    onChangeText={(val) => updateDetectedQuantity(item.id, val)}
                     keyboardType="numeric"
                   />
                 </View>
@@ -448,6 +547,67 @@ const FridgeScreenV2 = ({ navigation }) => {
                 <Text style={styles.modalButtonText}>
                   Ajouter ({detectedItems.filter(i => i.confirmed).length})
                 </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal Édition (DLC + Quantité) */}
+      <Modal
+        visible={showEditModal}
+        animationType="slide"
+        transparent={true}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Modifier {editingItem?.name}</Text>
+
+            <Text style={styles.label}>Quantité</Text>
+            <TextInput
+              style={styles.input}
+              value={editingItem?.quantity.toString()}
+              onChangeText={(val) => setEditingItem({
+                ...editingItem,
+                quantity: parseInt(val) || 1
+              })}
+              keyboardType="numeric"
+            />
+
+            <Text style={styles.label}>Date de péremption</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="AAAA-MM-JJ (ex: 2025-12-31)"
+              value={editingItem?.expiryDateStr}
+              onChangeText={(val) => setEditingItem({
+                ...editingItem,
+                expiryDateStr: val
+              })}
+            />
+
+            <Text style={styles.label}>Zone du frigo</Text>
+            <TextInput
+              style={styles.input}
+              value={editingItem?.zone}
+              onChangeText={(val) => setEditingItem({
+                ...editingItem,
+                zone: val
+              })}
+            />
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setShowEditModal(false)}
+              >
+                <Text style={styles.modalButtonText}>Annuler</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.modalButton, styles.confirmButton]}
+                onPress={saveEdit}
+              >
+                <Text style={styles.modalButtonText}>Sauvegarder</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -536,29 +696,26 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '600',
   },
-  scanButtons: {
-    flexDirection: 'row',
-    paddingHorizontal: 15,
-    gap: 10,
-    marginBottom: 15,
-  },
   scanButton: {
-    flex: 1,
     flexDirection: 'row',
     backgroundColor: '#9b59b6',
+    marginHorizontal: 15,
+    marginBottom: 15,
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-  },
-  galleryButton: {
-    backgroundColor: '#3498db',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   scanButtonText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
+    marginLeft: 10,
   },
   list: {
     padding: 15,
@@ -566,6 +723,7 @@ const styles = StyleSheet.create({
   fridgeItem: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     backgroundColor: '#fff',
     padding: 15,
     borderRadius: 12,
@@ -612,13 +770,25 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontWeight: '600',
   },
-  itemZone: {
-    fontSize: 12,
-    color: '#999',
-    marginTop: 2,
+  quantityControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
-  deleteButton: {
-    padding: 8,
+  quantityButton: {
+    backgroundColor: '#3498db',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  quantity: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    minWidth: 30,
+    textAlign: 'center',
   },
   emptyContainer: {
     alignItems: 'center',
@@ -629,6 +799,40 @@ const styles = StyleSheet.create({
     color: '#999',
     marginTop: 20,
     textAlign: 'center',
+  },
+  menuOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  menuContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+  },
+  menuButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 12,
+    marginBottom: 15,
+  },
+  menuButtonText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+    marginLeft: 15,
+  },
+  cancelButton: {
+    backgroundColor: '#e0e0e0',
+  },
+  cancelButtonText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#666',
   },
   modalOverlay: {
     flex: 1,
@@ -643,16 +847,10 @@ const styles = StyleSheet.create({
     maxHeight: '80%',
   },
   modalTitle: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: 'bold',
     color: '#333',
     textAlign: 'center',
-  },
-  modalSubtitle: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
-    marginTop: 5,
     marginBottom: 20,
   },
   detectedList: {
@@ -690,6 +888,20 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 16,
   },
+  label: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+    marginTop: 15,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+  },
   modalButtons: {
     flexDirection: 'row',
     gap: 10,
@@ -701,9 +913,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
   },
-  cancelButton: {
-    backgroundColor: '#95a5a6',
-  },
   confirmButton: {
     backgroundColor: '#2ecc71',
   },
@@ -714,4 +923,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default FridgeScreenV2;
+export default FridgeScreen;
