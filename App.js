@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from './firebaseConfig';
 
+// Écrans existants
 import LoginScreen from './screens/LoginScreen';
 import RegisterScreen from './screens/RegisterScreen';
 import HomeScreen from './screens/HomeScreen';
@@ -16,7 +17,10 @@ import BarcodeScannerScreen from './screens/BarcodeScannerScreen';
 import ProductDetailScreen from './screens/ProductDetailScreen';
 import FridgeScreen from './screens/FridgeScreen';
 import RecipesScreen from './screens/RecipesScreen';
-import notificationService from './services/notificationService';
+
+// 🆕 NOUVEAUX ÉCRANS KNORR
+import KnorrFeedScreen from './screens/knorr/KnorrFeedScreen';
+import KnorrShopScreen from './screens/knorr/KnorrShopScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -33,15 +37,28 @@ function MainTabs() {
             iconName = focused ? 'stats-chart' : 'stats-chart-outline';
           } else if (route.name === 'Communauté') {
             iconName = focused ? 'chatbubbles' : 'chatbubbles-outline';
+          } else if (route.name === 'KnorrFeed') {
+            // 🆕 ICÔNE KNORR
+            iconName = focused ? 'restaurant' : 'restaurant-outline';
           }
           return <Ionicons name={iconName} size={size} color={color} />;
         },
-        tabBarActiveTintColor: '#2ecc71',
+        tabBarActiveTintColor: '#e63946', // Rouge Knorr
         tabBarInactiveTintColor: 'gray',
         headerShown: false,
       })}
     >
       <Tab.Screen name="Accueil" component={HomeScreen} />
+
+      {/* 🆕 FEED KNORR - NOUVEAU TAB PRINCIPAL */}
+      <Tab.Screen
+        name="KnorrFeed"
+        component={KnorrFeedScreen}
+        options={{
+          tabBarLabel: 'Knorr',
+        }}
+      />
+
       <Tab.Screen name="Statistiques" component={StatsScreen} />
       <Tab.Screen name="Communauté" component={CommunityScreen} />
     </Tab.Navigator>
@@ -57,13 +74,6 @@ export default function App() {
       setUser(currentUser);
       setLoading(false);
     });
-    if (user) {
-    notificationService.initialize(user.uid);
-  }
-  
-  return () => {
-    notificationService.cleanup();
-  };
     return unsubscribe;
   }, []);
 
@@ -75,11 +85,31 @@ export default function App() {
         {user ? (
           <>
             <Stack.Screen name="MainTabs" component={MainTabs} />
-            <Stack.Screen name="Profile" component={ProfileScreen} options={{ headerShown: true, title: 'Mon Profil' }} />
+            <Stack.Screen
+              name="Profile"
+              component={ProfileScreen}
+              options={{ headerShown: true, title: 'Mon Profil' }}
+            />
             <Stack.Screen name="BarcodeScanner" component={BarcodeScannerScreen} />
-            <Stack.Screen name="ProductDetail" component={ProductDetailScreen} options={{ headerShown: true, title: 'Détails du produit' }} />
+            <Stack.Screen
+              name="ProductDetail"
+              component={ProductDetailScreen}
+              options={{ headerShown: true, title: 'Détails du produit' }}
+            />
             <Stack.Screen name="Fridge" component={FridgeScreen} />
-            <Stack.Screen name="Recipes" component={RecipesScreen} options={{ headerShown: false }} />
+            <Stack.Screen
+              name="Recipes"
+              component={RecipesScreen}
+              options={{ headerShown: false }}
+            />
+
+            {/* 🆕 ROUTES KNORR */}
+            <Stack.Screen
+              name="KnorrShop"
+              component={KnorrShopScreen}
+              options={{ headerShown: false }}
+            />
+
           </>
         ) : (
           <>
