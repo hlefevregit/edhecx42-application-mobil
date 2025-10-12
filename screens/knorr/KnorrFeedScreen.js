@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import knorrAlgorithmService from '../../services/knorrAlgorithmService';
 import {
   View,
   Text,
@@ -83,28 +84,37 @@ const KnorrFeedScreen = ({ navigation }) => {
     }
   };
 
-  const loadFeed = () => {
-    // Charger posts avec algo (pour l'instant tous les posts)
+  const loadFeed = async () => {
+  try {
+    // Charger feed personnalisé avec IA
+    const personalizedPosts = await knorrAlgorithmService.generatePersonalizedFeed(
+      userId,
+      20 // Limit
+    );
+    
+    setPosts(personalizedPosts);
+    setLoading(false);
+  } catch (error) {
+    console.error('Erreur feed:', error);
+    // Fallback : charger tous les posts
     const q = query(
       collection(db, 'knorr_posts'),
       orderBy('createdAt', 'desc'),
       limit(20)
     );
-
+    
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const postsData = [];
       querySnapshot.forEach((doc) => {
-        postsData.push({
-          id: doc.id,
-          ...doc.data()
-        });
+        postsData.push({ id: doc.id, ...doc.data() });
       });
       setPosts(postsData);
       setLoading(false);
     });
-
+    
     return unsubscribe;
-  };
+  }
+};
 
   const handleViewableItemsChanged = useRef(({ viewableItems }) => {
     if (viewableItems.length > 0) {

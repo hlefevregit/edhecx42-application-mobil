@@ -5,6 +5,9 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from './firebaseConfig';
+import CreateKnorrPostScreen from './screens/knorr/CreateKnorrPostScreen';
+import KnorrProfileScreen from './screens/knorr/KnorrProfileScreen';
+import KnorrChallengesScreen from './screens/knorr/KnorrChallengesScreen';
 
 // Écrans existants
 import LoginScreen from './screens/LoginScreen';
@@ -102,7 +105,21 @@ export default function App() {
               component={RecipesScreen}
               options={{ headerShown: false }}
             />
-
+            <Stack.Screen 
+                name="CreateKnorrPost" 
+                component={CreateKnorrPostScreen}
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen 
+                name="KnorrProfile" 
+                component={KnorrProfileScreen}
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen 
+                name="KnorrChallenges" 
+                component={KnorrChallengesScreen}
+                options={{ headerShown: false }}
+              />
             {/* 🆕 ROUTES KNORR */}
             <Stack.Screen
               name="KnorrShop"
