@@ -6,7 +6,8 @@ import {
   TouchableOpacity,
   FlatList,
   StyleSheet,
-  Alert
+  Alert,
+  Animated
 } from 'react-native';
 import { DeviceMotion } from 'expo-sensors';
 import { useCameraPermissions } from 'expo-camera';
@@ -14,34 +15,56 @@ import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../firebaseConfig';
 import { Ionicons } from '@expo/vector-icons';
 import { useIsFocused } from '@react-navigation/native';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const HomeScreen = ({ navigation }) => {
   const [shoppingList, setShoppingList] = useState([]);
   const [newItem, setNewItem] = useState('');
   const [isFlat, setIsFlat] = useState(false);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
+  const [pulseAnim] = useState(new Animated.Value(1));
   
   const userId = auth.currentUser?.uid;
-  const isFocused = useIsFocused(); // Détecte si on est sur cet écran
+  const userName = auth.currentUser?.displayName || 'Utilisateur';
+  const isFocused = useIsFocused();
 
   useEffect(() => {
     loadShoppingList();
   }, []);
 
-  // Détecter orientation UNIQUEMENT si on est sur cet écran
+  // Animation pulse pour l'indicateur scan
+  useEffect(() => {
+    if (isFlat) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1.2,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    }
+  }, [isFlat]);
+
+  // Détection orientation
   useEffect(() => {
     let subscription;
 
     const checkOrientation = async () => {
-      if (!isFocused) return; // Ne marche QUE sur cette page
+      if (!isFocused) return;
 
       const isAvailable = await DeviceMotion.isAvailableAsync();
       if (!isAvailable) return;
 
       subscription = DeviceMotion.addListener(({ rotation }) => {
-        // Téléphone perpendiculaire au sol = beta proche de 1.57 (90°)
         const beta = Math.abs(rotation.beta);
-        const isDeviceFlat = beta > 1.3 && beta < 1.8; // 75° à 105°
+        const isDeviceFlat = beta > 1.3 && beta < 1.8;
         
         if (isDeviceFlat && !isFlat && isFocused) {
           setIsFlat(true);
@@ -128,7 +151,6 @@ const HomeScreen = ({ navigation }) => {
     saveShoppingList(newList);
   };
 
-  // Activation auto du scanner SANS confirmation
   const activateScannerAuto = async () => {
     if (!cameraPermission?.granted) {
       const { granted } = await requestCameraPermission();
@@ -139,72 +161,153 @@ const HomeScreen = ({ navigation }) => {
       }
     }
 
-    // Ouvrir DIRECTEMENT le scanner
     navigation.navigate('BarcodeScanner');
-    setIsFlat(false); // Reset pour éviter les réouvertures
+    setIsFlat(false);
+  };
+
+  const getProgress = () => {
+    if (shoppingList.length === 0) return 0;
+    const checked = shoppingList.filter(item => item.checked).length;
+    return (checked / shoppingList.length) * 100;
   };
 
   const renderItem = ({ item }) => (
-    <View style={styles.listItem}>
+    <Animated.View 
+      style={[
+        styles.listItem,
+        item.checked && styles.listItemChecked
+      ]}
+    >
       <TouchableOpacity
         style={styles.checkbox}
         onPress={() => toggleItem(item.id)}
       >
-        <Ionicons
-          name={item.checked ? 'checkbox' : 'square-outline'}
-          size={24}
-          color={item.checked ? '#2ecc71' : '#999'}
-        />
+        <View style={[
+          styles.checkboxBox,
+          item.checked && styles.checkboxBoxChecked
+        ]}>
+          {item.checked && (
+            <Ionicons name="checkmark" size={18} color="#fff" />
+          )}
+        </View>
       </TouchableOpacity>
       
-      <Text style={[
-        styles.itemText,
-        item.checked && styles.itemTextChecked
-      ]}>
-        {item.name}
-      </Text>
+      <View style={styles.itemContent}>
+        <Text style={[
+          styles.itemText,
+          item.checked && styles.itemTextChecked
+        ]}>
+          {item.name}
+        </Text>
+        <Text style={styles.itemQuantity}>Qté: {item.quantity}</Text>
+      </View>
       
-      <TouchableOpacity onPress={() => deleteItem(item.id)}>
+      <TouchableOpacity 
+        style={styles.deleteButton}
+        onPress={() => deleteItem(item.id)}
+      >
         <Ionicons name="trash-outline" size={22} color="#e74c3c" />
       </TouchableOpacity>
-    </View>
+    </Animated.View>
   );
+
+  const progress = getProgress();
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.title}>Ma Liste de Courses</Text>
-        <TouchableOpacity
-          style={styles.profileButton}
-          onPress={() => navigation.navigate('Profile')}
-        >
-          <Ionicons name="person-circle-outline" size={32} color="#2ecc71" />
-        </TouchableOpacity>
-      </View>
+      {/* Header avec Gradient */}
+      <LinearGradient
+        colors={['#2ecc71', '#27ae60']}
+        style={styles.header}
+      >
+        <View style={styles.headerTop}>
+          <View>
+            <Text style={styles.greeting}>Bonjour,</Text>
+            <Text style={styles.userName}>{userName} 👋</Text>
+          </View>
+          <TouchableOpacity
+            style={styles.profileButton}
+            onPress={() => navigation.navigate('Profile')}
+          >
+            <Ionicons name="person-circle" size={40} color="#fff" />
+          </TouchableOpacity>
+        </View>
 
-      {/* Indicateur scan auto VISIBLE */}
+        {/* Stats rapides */}
+        <View style={styles.statsRow}>
+          <View style={styles.statCard}>
+            <Ionicons name="cart" size={24} color="#fff" />
+            <Text style={styles.statNumber}>{shoppingList.length}</Text>
+            <Text style={styles.statLabel}>Articles</Text>
+          </View>
+
+          <View style={styles.statCard}>
+            <Ionicons name="checkmark-circle" size={24} color="#fff" />
+            <Text style={styles.statNumber}>
+              {shoppingList.filter(i => i.checked).length}
+            </Text>
+            <Text style={styles.statLabel}>Cochés</Text>
+          </View>
+
+          <View style={styles.statCard}>
+            <Ionicons name="trending-up" size={24} color="#fff" />
+            <Text style={styles.statNumber}>{Math.round(progress)}%</Text>
+            <Text style={styles.statLabel}>Progrès</Text>
+          </View>
+        </View>
+
+        {/* Progress bar */}
+        {shoppingList.length > 0 && (
+          <View style={styles.progressContainer}>
+            <View style={styles.progressBar}>
+              <View style={[styles.progressFill, { width: `${progress}%` }]} />
+            </View>
+          </View>
+        )}
+      </LinearGradient>
+
+      {/* Indicateur scan auto */}
       {isFlat && (
-        <View style={styles.scanningIndicator}>
-          <View style={styles.pulseCircle} />
+        <Animated.View 
+          style={[
+            styles.scanningIndicator,
+            { transform: [{ scale: pulseAnim }] }
+          ]}
+        >
           <Ionicons name="scan" size={24} color="#fff" />
-          <Text style={styles.scanningText}>
-            📱 Scan automatique activé...
+          <Text style={styles.scanningText}>Scan activé...</Text>
+        </Animated.View>
+      )}
+
+      {/* Aide scan */}
+      {!isFlat && shoppingList.length === 0 && (
+        <View style={styles.helpCard}>
+          <Ionicons name="information-circle" size={32} color="#3498db" />
+          <Text style={styles.helpText}>
+            💡 Tenez le téléphone à plat pour scanner un produit automatiquement !
           </Text>
         </View>
       )}
 
       {/* Ajouter un article */}
       <View style={styles.addSection}>
-        <TextInput
-          style={styles.input}
-          placeholder="Ajouter un article..."
-          value={newItem}
-          onChangeText={setNewItem}
-          onSubmitEditing={addItem}
-        />
-        <TouchableOpacity style={styles.addButton} onPress={addItem}>
-          <Ionicons name="add-circle" size={32} color="#2ecc71" />
+        <View style={styles.inputContainer}>
+          <Ionicons name="add-circle-outline" size={24} color="#2ecc71" />
+          <TextInput
+            style={styles.input}
+            placeholder="Ajouter un article..."
+            placeholderTextColor="#999"
+            value={newItem}
+            onChangeText={setNewItem}
+            onSubmitEditing={addItem}
+          />
+        </View>
+        <TouchableOpacity 
+          style={styles.addButton} 
+          onPress={addItem}
+          disabled={!newItem.trim()}
+        >
+          <Ionicons name="add" size={28} color="#fff" />
         </TouchableOpacity>
       </View>
 
@@ -214,27 +317,46 @@ const HomeScreen = ({ navigation }) => {
         renderItem={renderItem}
         keyExtractor={item => item.id}
         contentContainerStyle={styles.list}
+        showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Ionicons name="cart-outline" size={80} color="#ddd" />
-            <Text style={styles.emptyText}>
-              Votre liste est vide
-            </Text>
+            <Ionicons name="cart-outline" size={100} color="#ddd" />
+            <Text style={styles.emptyText}>Votre liste est vide</Text>
             <Text style={styles.emptySubtext}>
-              🔄 Tenez le téléphone perpendiculaire pour scanner
+              Ajoutez des articles ou scannez des produits
             </Text>
           </View>
         }
       />
 
-      {/* Bouton scan manuel */}
-      <TouchableOpacity
-        style={styles.scanButton}
-        onPress={() => navigation.navigate('BarcodeScanner')}
-      >
-        <Ionicons name="barcode-outline" size={24} color="#fff" />
-        <Text style={styles.scanButtonText}>Scanner manuellement</Text>
-      </TouchableOpacity>
+      {/* Boutons action rapide */}
+      <View style={styles.quickActions}>
+        <TouchableOpacity
+          style={styles.quickAction}
+          onPress={() => navigation.navigate('BarcodeScanner')}
+        >
+          <LinearGradient
+            colors={['#3498db', '#2980b9']}
+            style={styles.quickActionGradient}
+          >
+            <Ionicons name="barcode" size={24} color="#fff" />
+            <Text style={styles.quickActionText}>Scanner</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.quickAction}
+          onPress={() => navigation.navigate('Fridge')}
+        >
+          <LinearGradient
+            colors={['#9b59b6', '#8e44ad']}
+            style={styles.quickActionGradient}
+          >
+            <Ionicons name="snow" size={24} color="#fff" />
+            <Text style={styles.quickActionText}>Mon Frigo</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };
@@ -245,21 +367,71 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
   },
   header: {
+    paddingTop: 50,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  headerTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    marginBottom: 20,
   },
-  title: {
+  greeting: {
+    fontSize: 16,
+    color: 'rgba(255,255,255,0.9)',
+  },
+  userName: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#fff',
+    marginTop: 4,
   },
   profileButton: {
     padding: 5,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 15,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 12,
+    padding: 12,
+    alignItems: 'center',
+  },
+  statNumber: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginTop: 8,
+  },
+  statLabel: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.9)',
+    marginTop: 4,
+  },
+  progressContainer: {
+    marginTop: 5,
+  },
+  progressBar: {
+    height: 6,
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#fff',
   },
   scanningIndicator: {
     flexDirection: 'row',
@@ -267,15 +439,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#2ecc71',
     padding: 15,
-    position: 'relative',
-  },
-  pulseCircle: {
-    position: 'absolute',
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.3)',
-    // Animation pulse (nécessite Animated API pour vraie animation)
+    marginHorizontal: 20,
+    marginTop: -15,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
   },
   scanningText: {
     color: '#fff',
@@ -283,58 +454,123 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 16,
   },
+  helpCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#e8f4fd',
+    margin: 20,
+    padding: 15,
+    borderRadius: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#3498db',
+  },
+  helpText: {
+    flex: 1,
+    marginLeft: 12,
+    fontSize: 14,
+    color: '#3498db',
+    lineHeight: 20,
+  },
   addSection: {
     flexDirection: 'row',
-    padding: 15,
-    backgroundColor: '#fff',
+    padding: 20,
+    paddingTop: 15,
     alignItems: 'center',
+    gap: 10,
+  },
+  inputContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    paddingHorizontal: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   input: {
     flex: 1,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
+    padding: 15,
     fontSize: 16,
-    marginRight: 10,
+    marginLeft: 10,
   },
   addButton: {
-    padding: 5,
+    backgroundColor: '#2ecc71',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
   },
   list: {
-    padding: 15,
+    paddingHorizontal: 20,
+    paddingBottom: 180,
   },
   listItem: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#fff',
     padding: 15,
-    borderRadius: 8,
+    borderRadius: 12,
     marginBottom: 10,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 2,
+    shadowRadius: 4,
     elevation: 2,
   },
+  listItemChecked: {
+    opacity: 0.6,
+  },
   checkbox: {
-    marginRight: 12,
+    marginRight: 15,
+  },
+  checkboxBox: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: '#2ecc71',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkboxBoxChecked: {
+    backgroundColor: '#2ecc71',
+  },
+  itemContent: {
+    flex: 1,
   },
   itemText: {
-    flex: 1,
     fontSize: 16,
     color: '#333',
+    fontWeight: '500',
   },
   itemTextChecked: {
     textDecorationLine: 'line-through',
     color: '#999',
+  },
+  itemQuantity: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 4,
+  },
+  deleteButton: {
+    padding: 5,
   },
   emptyContainer: {
     alignItems: 'center',
     paddingTop: 60,
   },
   emptyText: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '600',
     color: '#999',
     marginTop: 20,
@@ -345,16 +581,31 @@ const styles = StyleSheet.create({
     marginTop: 8,
     textAlign: 'center',
   },
-  scanButton: {
+  quickActions: {
+    position: 'absolute',
+    bottom: 20,
+    left: 20,
+    right: 20,
     flexDirection: 'row',
-    backgroundColor: '#3498db',
-    margin: 15,
-    padding: 16,
-    borderRadius: 8,
+    gap: 12,
+  },
+  quickAction: {
+    flex: 1,
+    borderRadius: 12,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  quickActionGradient: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    padding: 16,
   },
-  scanButtonText: {
+  quickActionText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
