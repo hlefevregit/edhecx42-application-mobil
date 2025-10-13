@@ -8,12 +8,11 @@ import {
   ScrollView,
   StyleSheet,
   Alert,
-  Platform,
   ActivityIndicator
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Video } from 'expo-av';
-import { addDoc, collection, updateDoc, doc, increment } from 'firebase/firestore';
+import { addDoc, collection, updateDoc, doc, increment, setDoc } from 'firebase/firestore'; // ✅ setDoc ajouté
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { auth, db, storage } from '../../firebaseConfig';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,7 +20,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 const CreateKnorrPostScreen = ({ navigation }) => {
   const [mediaUri, setMediaUri] = useState(null);
-  const [mediaType, setMediaType] = useState(null); // 'image' ou 'video'
+  const [mediaType, setMediaType] = useState(null);
   const [caption, setCaption] = useState('');
   const [hashtags, setHashtags] = useState('');
   const [selectedProducts, setSelectedProducts] = useState([]);
@@ -38,7 +37,6 @@ const CreateKnorrPostScreen = ({ navigation }) => {
   const userId = auth.currentUser?.uid;
   const userName = auth.currentUser?.displayName || 'Utilisateur';
 
-  // Base de produits Knorr (à enrichir)
   const KNORR_PRODUCTS = [
     { id: 'knorr_1', name: 'Knorr Bouillon de Légumes', category: 'bouillon', image: 'https://via.placeholder.com/100' },
     { id: 'knorr_2', name: 'Knorr Bouillon de Poule', category: 'bouillon', image: 'https://via.placeholder.com/100' },
@@ -50,7 +48,6 @@ const CreateKnorrPostScreen = ({ navigation }) => {
     { id: 'knorr_8', name: 'Knorr Sauce Béchamel', category: 'sauce', image: 'https://via.placeholder.com/100' },
   ];
 
-  // Sélectionner média (photo ou vidéo)
   const pickMedia = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     
@@ -63,7 +60,7 @@ const CreateKnorrPostScreen = ({ navigation }) => {
       mediaTypes: ImagePicker.MediaTypeOptions.All,
       allowsEditing: true,
       quality: 0.8,
-      videoMaxDuration: 60, // Max 60 secondes
+      videoMaxDuration: 60,
     });
 
     if (!result.canceled) {
@@ -73,7 +70,6 @@ const CreateKnorrPostScreen = ({ navigation }) => {
     }
   };
 
-  // Prendre photo/vidéo
   const takeMedia = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     
@@ -96,7 +92,6 @@ const CreateKnorrPostScreen = ({ navigation }) => {
     }
   };
 
-  // Toggle produit Knorr
   const toggleProduct = (product) => {
     if (selectedProducts.find(p => p.productId === product.id)) {
       setSelectedProducts(selectedProducts.filter(p => p.productId !== product.id));
@@ -109,23 +104,26 @@ const CreateKnorrPostScreen = ({ navigation }) => {
     }
   };
 
-  // Upload média sur Firebase Storage
+  // ✅ UPLOAD FIREBASE STORAGE CORRIGÉ
   const uploadMedia = async (uri) => {
-    const response = await fetch(uri);
-    const blob = await response.blob();
-    
-    const filename = `knorr_posts/${userId}_${Date.now()}.${mediaType === 'video' ? 'mp4' : 'jpg'}`;
-    const storageRef = ref(storage, filename);
-    
-    await uploadBytes(storageRef, blob);
-    const downloadURL = await getDownloadURL(storageRef);
-    
-    return downloadURL;
+    try {
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      
+      const filename = `knorr_posts/${userId}_${Date.now()}.${mediaType === 'video' ? 'mp4' : 'jpg'}`;
+      const storageRef = ref(storage, filename);
+      
+      await uploadBytes(storageRef, blob);
+      const downloadURL = await getDownloadURL(storageRef);
+      
+      return downloadURL;
+    } catch (error) {
+      console.error('Erreur upload:', error);
+      throw new Error('Impossible d\'uploader le fichier');
+    }
   };
 
-  // Publier le post
   const publishPost = async () => {
-    // Validations
     if (!mediaUri) {
       Alert.alert('Erreur', 'Ajoutez une photo ou vidéo');
       return;
@@ -151,7 +149,7 @@ const CreateKnorrPostScreen = ({ navigation }) => {
     setUploading(true);
 
     try {
-      // Upload média
+      // ✅ Upload média
       const mediaUrl = await uploadMedia(mediaUri);
 
       // Parser hashtags
@@ -160,12 +158,12 @@ const CreateKnorrPostScreen = ({ navigation }) => {
         .filter(tag => tag.startsWith('#'))
         .map(tag => tag.trim());
 
-      // Créer le post
+      // ✅ Créer le post
       const postData = {
         userId,
         userName,
         userAvatar: auth.currentUser?.photoURL || null,
-        userLevel: 1, // À récupérer du profil Knorr
+        userLevel: 1,
         caption,
         hashtags: hashtagsArray,
         mediaUrl,
@@ -180,8 +178,8 @@ const CreateKnorrPostScreen = ({ navigation }) => {
         createdAt: new Date(),
         status: 'active',
         isPromoted: false,
-        allergens: [], // À détecter depuis les produits
-        dietType: 'omnivore', // À détecter
+        allergens: [],
+        dietType: 'omnivore',
         recipe: isRecipe ? {
           prepTime: parseInt(recipeData.prepTime) || 0,
           cookTime: parseInt(recipeData.cookTime) || 0,
@@ -190,15 +188,40 @@ const CreateKnorrPostScreen = ({ navigation }) => {
         } : null
       };
 
-      const docRef = await addDoc(collection(db, 'knorr_posts'), postData);
+      await addDoc(collection(db, 'knorr_posts'), postData);
 
-      // Mettre à jour profil utilisateur
+      // ✅ Mettre à jour profil (avec setDoc si n'existe pas)
       const userRef = doc(db, 'knorr_user_profiles', userId);
-      await updateDoc(userRef, {
-        'stats.totalPosts': increment(1),
-        knorrXP: increment(10), // +10 XP par post
-        rewardPoints: increment(5) // +5 points
-      });
+      const userDoc = await getDoc(userRef);
+
+      if (userDoc.exists()) {
+        await updateDoc(userRef, {
+          'stats.totalPosts': increment(1),
+          knorrXP: increment(10),
+          rewardPoints: increment(5)
+        });
+      } else {
+        // Créer le profil si n'existe pas
+        await setDoc(userRef, {
+          userId,
+          knorrLevel: 1,
+          knorrXP: 10,
+          rewardPoints: 5,
+          badges: [],
+          stats: {
+            totalPosts: 1,
+            totalViews: 0,
+            totalLikes: 0
+          },
+          followers: [],
+          following: [],
+          contentPreferences: {
+            favoriteKnorrProducts: [],
+            likedPosts: [],
+            savedPosts: []
+          }
+        });
+      }
 
       Alert.alert(
         '🎉 Post publié !',
@@ -210,7 +233,7 @@ const CreateKnorrPostScreen = ({ navigation }) => {
 
     } catch (error) {
       console.error('Erreur publication:', error);
-      Alert.alert('Erreur', 'Impossible de publier le post');
+      Alert.alert('Erreur', error.message || 'Impossible de publier le post');
     } finally {
       setUploading(false);
     }
@@ -228,7 +251,6 @@ const CreateKnorrPostScreen = ({ navigation }) => {
 
   return (
     <ScrollView style={styles.container}>
-      {/* Header */}
       <LinearGradient
         colors={['#e63946', '#c1121f']}
         style={styles.header}
@@ -242,7 +264,6 @@ const CreateKnorrPostScreen = ({ navigation }) => {
         </TouchableOpacity>
       </LinearGradient>
 
-      {/* Média preview */}
       {mediaUri ? (
         <View style={styles.mediaPreview}>
           {mediaType === 'video' ? (
@@ -282,7 +303,6 @@ const CreateKnorrPostScreen = ({ navigation }) => {
         </View>
       )}
 
-      {/* Caption */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Description *</Text>
         <TextInput
@@ -296,7 +316,6 @@ const CreateKnorrPostScreen = ({ navigation }) => {
         <Text style={styles.charCount}>{caption.length}/500</Text>
       </View>
 
-      {/* Hashtags */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Hashtags</Text>
         <TextInput
@@ -307,7 +326,6 @@ const CreateKnorrPostScreen = ({ navigation }) => {
         />
       </View>
 
-      {/* Produits Knorr */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>🍽️ Produits Knorr utilisés</Text>
@@ -364,7 +382,6 @@ const CreateKnorrPostScreen = ({ navigation }) => {
         )}
       </View>
 
-      {/* Type de contenu */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Type de contenu</Text>
         <View style={styles.contentTypeRow}>
@@ -390,7 +407,6 @@ const CreateKnorrPostScreen = ({ navigation }) => {
         </View>
       </View>
 
-      {/* Détails recette (si recette) */}
       {isRecipe && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Détails de la recette</Text>
@@ -453,7 +469,6 @@ const CreateKnorrPostScreen = ({ navigation }) => {
         </View>
       )}
 
-      {/* Info XP */}
       <View style={styles.xpInfo}>
         <Ionicons name="trophy" size={24} color="#f39c12" />
         <Text style={styles.xpInfoText}>
@@ -467,285 +482,52 @@ const CreateKnorrPostScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  uploadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-  },
-  uploadingText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-    marginTop: 20,
-  },
-  uploadingSubtext: {
-    fontSize: 14,
-    color: '#999',
-    marginTop: 8,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: 50,
-    paddingBottom: 15,
-    paddingHorizontal: 20,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  publishButton: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  mediaPreview: {
-    width: '100%',
-    height: 300,
-    position: 'relative',
-  },
-  mediaPreviewContent: {
-    width: '100%',
-    height: '100%',
-  },
-  removeMediaButton: {
-    position: 'absolute',
-    top: 15,
-    right: 15,
-    backgroundColor: '#fff',
-    borderRadius: 16,
-  },
-  mediaSelector: {
-    flexDirection: 'row',
-    padding: 20,
-    gap: 15,
-  },
-  mediaSelectorButton: {
-    flex: 1,
-    height: 150,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#e63946',
-    borderStyle: 'dashed',
-  },
-  mediaSelectorText: {
-    marginTop: 10,
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#666',
-    textAlign: 'center',
-  },
-  section: {
-    backgroundColor: '#fff',
-    padding: 20,
-    marginBottom: 10,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 10,
-  },
-  sectionSubtitle: {
-    fontSize: 14,
-    color: '#666',
-  },
-  captionInput: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    minHeight: 100,
-    textAlignVertical: 'top',
-  },
-  charCount: {
-    textAlign: 'right',
-    fontSize: 12,
-    color: '#999',
-    marginTop: 5,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-  },
-  addProductButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#fff',
-    borderWidth: 2,
-    borderColor: '#e63946',
-    borderRadius: 8,
-    padding: 15,
-    marginBottom: 15,
-  },
-  addProductText: {
-    marginLeft: 10,
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#e63946',
-  },
-  productPicker: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    marginBottom: 15,
-  },
-  productItem: {
-    width: '48%',
-    backgroundColor: '#f9f9f9',
-    borderRadius: 8,
-    padding: 10,
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  productItemSelected: {
-    borderColor: '#2ecc71',
-    backgroundColor: '#e8f8f5',
-  },
-  productImage: {
-    width: 60,
-    height: 60,
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  productName: {
-    fontSize: 12,
-    textAlign: 'center',
-    color: '#333',
-    marginBottom: 5,
-  },
-  selectedProducts: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  selectedProductTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#e63946',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-  },
-  selectedProductText: {
-    color: '#fff',
-    fontSize: 13,
-    fontWeight: '600',
-    marginRight: 8,
-  },
-  contentTypeRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  contentTypeButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 15,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: '#ddd',
-    backgroundColor: '#fff',
-  },
-  contentTypeButtonActive: {
-    backgroundColor: '#e63946',
-    borderColor: '#e63946',
-  },
-  contentTypeText: {
-    marginLeft: 8,
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#666',
-  },
-  contentTypeTextActive: {
-    color: '#fff',
-  },
-  recipeRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 15,
-  },
-  recipeInput: {
-    flex: 1,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
-  },
-  smallInput: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 10,
-    fontSize: 16,
-    textAlign: 'center',
-  },
-  difficultyRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  difficultyButton: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: '#ddd',
-    alignItems: 'center',
-  },
-  difficultyButtonActive: {
-    backgroundColor: '#f39c12',
-    borderColor: '#f39c12',
-  },
-  difficultyText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#666',
-  },
-  difficultyTextActive: {
-    color: '#fff',
-  },
-  xpInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#fff9e6',
-    padding: 15,
-    marginHorizontal: 20,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#f39c12',
-  },
-  xpInfoText: {
-    marginLeft: 10,
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#f39c12',
-  },
+  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  uploadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' },
+  uploadingText: { fontSize: 18, fontWeight: '600', color: '#333', marginTop: 20 },
+  uploadingSubtext: { fontSize: 14, color: '#999', marginTop: 8 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 50, paddingBottom: 15, paddingHorizontal: 20 },
+  headerTitle: { fontSize: 18, fontWeight: 'bold', color: '#fff' },
+  publishButton: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+  mediaPreview: { width: '100%', height: 300, position: 'relative' },
+  mediaPreviewContent: { width: '100%', height: '100%' },
+  removeMediaButton: { position: 'absolute', top: 15, right: 15, backgroundColor: '#fff', borderRadius: 16 },
+  mediaSelector: { flexDirection: 'row', padding: 20, gap: 15 },
+  mediaSelectorButton: { flex: 1, height: 150, backgroundColor: '#fff', borderRadius: 12, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#e63946', borderStyle: 'dashed' },
+  mediaSelectorText: { marginTop: 10, fontSize: 14, fontWeight: '600', color: '#666', textAlign: 'center' },
+  section: { backgroundColor: '#fff', padding: 20, marginBottom: 10 },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
+  sectionTitle: { fontSize: 16, fontWeight: '600', color: '#333', marginBottom: 10 },
+  sectionSubtitle: { fontSize: 14, color: '#666' },
+  captionInput: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12, fontSize: 16, minHeight: 100, textAlignVertical: 'top' },
+  charCount: { textAlign: 'right', fontSize: 12, color: '#999', marginTop: 5 },
+  input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12, fontSize: 16 },
+  addProductButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', borderWidth: 2, borderColor: '#e63946', borderRadius: 8, padding: 15, marginBottom: 15 },
+  addProductText: { marginLeft: 10, fontSize: 16, fontWeight: '600', color: '#e63946' },
+  productPicker: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 15 },
+  productItem: { width: '48%', backgroundColor: '#f9f9f9', borderRadius: 8, padding: 10, alignItems: 'center', borderWidth: 2, borderColor: 'transparent' },
+  productItemSelected: { borderColor: '#2ecc71', backgroundColor: '#e8f8f5' },
+  productImage: { width: 60, height: 60, borderRadius: 8, marginBottom: 8 },
+  productName: { fontSize: 12, textAlign: 'center', color: '#333', marginBottom: 5 },
+  selectedProducts: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  selectedProductTag: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#e63946', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 20 },
+  selectedProductText: { color: '#fff', fontSize: 13, fontWeight: '600', marginRight: 8 },
+  contentTypeRow: { flexDirection: 'row', gap: 10 },
+  contentTypeButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 15, borderRadius: 8, borderWidth: 2, borderColor: '#ddd', backgroundColor: '#fff' },
+  contentTypeButtonActive: { backgroundColor: '#e63946', borderColor: '#e63946' },
+  contentTypeText: { marginLeft: 8, fontSize: 14, fontWeight: '600', color: '#666' },
+  contentTypeTextActive: { color: '#fff' },
+  recipeRow: { flexDirection: 'row', gap: 10, marginBottom: 15 },
+  recipeInput: { flex: 1 },
+  label: { fontSize: 14, fontWeight: '600', color: '#333', marginBottom: 8 },
+  smallInput: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 10, fontSize: 16, textAlign: 'center' },
+  difficultyRow: { flexDirection: 'row', gap: 10 },
+  difficultyButton: { flex: 1, padding: 12, borderRadius: 8, borderWidth: 2, borderColor: '#ddd', alignItems: 'center' },
+  difficultyButtonActive: { backgroundColor: '#f39c12', borderColor: '#f39c12' },
+  difficultyText: { fontSize: 14, fontWeight: '600', color: '#666' },
+  difficultyTextActive: { color: '#fff' },
+  xpInfo: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff9e6', padding: 15, marginHorizontal: 20, borderRadius: 8, borderWidth: 1, borderColor: '#f39c12' },
+  xpInfoText: { marginLeft: 10, fontSize: 14, fontWeight: '600', color: '#f39c12' },
 });
 
 export default CreateKnorrPostScreen;

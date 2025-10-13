@@ -8,12 +8,12 @@ import {
   TouchableOpacity,
   Alert
 } from 'react-native';
-import { doc, updateDoc, arrayUnion, getDoc } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../firebaseConfig';
 import { Ionicons } from '@expo/vector-icons';
 
 const ProductDetailScreen = ({ route, navigation }) => {
-  const { barcode, product } = route.params;
+  const { barcode, product, addToList = false } = route.params; // ✅ NOUVEAU PARAM
   const userId = auth.currentUser?.uid;
 
   const addToShoppingList = async () => {
@@ -23,24 +23,33 @@ const ProductDetailScreen = ({ route, navigation }) => {
       const docRef = doc(db, 'shopping_lists', userId);
       const docSnap = await getDoc(docRef);
       
+      const newItem = {
+        id: Date.now().toString(),
+        name: product.name,
+        quantity: 1,
+        checked: false,
+        addedAt: new Date(),
+        barcode: barcode
+      };
+
       if (docSnap.exists()) {
         const currentItems = docSnap.data().items || [];
-        const newItem = {
-          id: Date.now().toString(),
-          name: product.name,
-          quantity: 1,
-          checked: false,
-          addedAt: new Date(),
-          barcode: barcode
-        };
-        
         await updateDoc(docRef, {
           items: [...currentItems, newItem],
           updatedAt: new Date()
         });
-        
-        Alert.alert('Succès', 'Produit ajouté à la liste de courses !');
+      } else {
+        // Créer la collection si elle n'existe pas
+        await setDoc(docRef, {
+          userId,
+          items: [newItem],
+          updatedAt: new Date()
+        });
       }
+      
+      Alert.alert('✅ Succès', 'Produit ajouté à la liste de courses !', [
+        { text: 'OK', onPress: () => navigation.navigate('Accueil') }
+      ]);
     } catch (error) {
       console.error('Erreur ajout liste:', error);
       Alert.alert('Erreur', 'Impossible d\'ajouter le produit');
@@ -54,23 +63,31 @@ const ProductDetailScreen = ({ route, navigation }) => {
       const docRef = doc(db, 'fridge_items', userId);
       const docSnap = await getDoc(docRef);
       
+      const newItem = {
+        id: Date.now().toString(),
+        name: product.name,
+        barcode: barcode,
+        quantity: 1,
+        addedAt: new Date(),
+        imageUrl: product.imageUrl,
+        zone: 'Frigo principal'
+      };
+
       if (docSnap.exists()) {
         const currentItems = docSnap.data().items || [];
-        const newItem = {
-          id: Date.now().toString(),
-          name: product.name,
-          barcode: barcode,
-          quantity: 1,
-          addedAt: new Date(),
-          imageUrl: product.imageUrl
-        };
-        
         await updateDoc(docRef, {
           items: [...currentItems, newItem]
         });
-        
-        Alert.alert('Succès', 'Produit ajouté au frigo !');
+      } else {
+        // Créer la collection si elle n'existe pas
+        await setDoc(docRef, {
+          items: [newItem]
+        });
       }
+      
+      Alert.alert('✅ Succès', 'Produit ajouté au frigo !', [
+        { text: 'OK', onPress: () => navigation.navigate('Fridge') }
+      ]);
     } catch (error) {
       console.error('Erreur ajout frigo:', error);
       Alert.alert('Erreur', 'Impossible d\'ajouter le produit');
@@ -87,6 +104,13 @@ const ProductDetailScreen = ({ route, navigation }) => {
     };
     return colors[score?.toLowerCase()] || '#999';
   };
+
+  // ✅ AUTO-AJOUT si demandé
+  React.useEffect(() => {
+    if (addToList) {
+      addToShoppingList();
+    }
+  }, []);
 
   return (
     <ScrollView style={styles.container}>

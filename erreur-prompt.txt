@@ -1,0 +1,110 @@
+Android Bundled 19588ms index.js (1592 modules)
+ WARN  [2025-10-13T22:43:18.846Z]  @firebase/auth: Auth (12.3.0):
+You are initializing Firebase Auth for React Native without providing
+AsyncStorage. Auth state will default to memory persistence and will not
+persist between sessions. In order to persist auth state, install the package
+"@react-native-async-storage/async-storage" and provide it to
+initializeAuth:
+
+import { initializeAuth, getReactNativePersistence } from 'firebase/auth';
+import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
+const auth = initializeAuth(app, {
+  persistence: getReactNativePersistence(ReactNativeAsyncStorage)
+});
+ WARN  [expo-av]: Expo AV has been deprecated and will be removed in SDK 54. Use the `expo-audio` and `expo-video` packages to replace the required functionality.
+ WARN  Require cycle: services/recipeService.js -> services/recipeService.js
+
+Require cycles are allowed, but can result in uninitialized values. Consider refactoring to remove the need for a cycle.
+ ERROR  expo-notifications: Android Push notifications (remote notifications) functionality provided by expo-notifications was removed from Expo Go with the release of SDK 53. Use a development build instead of Expo Go. Read more at https://docs.expo.dev/develop/development-builds/introduction/.
+ WARN  `expo-notifications` functionality is not fully supported in Expo Go:
+We recommend you instead use a development build to avoid limitations. Learn more: https://expo.fyi/dev-client.
+ ERROR  Erreur profil Knorr: [ReferenceError: Property 'setDoc' doesn't exist]
+ WARN  [expo-image-picker] `ImagePicker.MediaTypeOptions` have been deprecated. Use `ImagePicker.MediaType` or an array of `ImagePicker.MediaType` instead.
+ ERROR  Erreur upload: [FirebaseError: Firebase Storage: An unknown error occurred, please check the error payload for server response. (storage/unknown)]
+ ERROR  Erreur publication: [Error: Impossible d'uploader le fichier]
+ ERROR  The action 'NAVIGATE' with payload {"name":"KnorrFeed"} was not handled by any navigator.
+
+Do you have a screen named 'KnorrFeed'?
+
+If you're trying to navigate to a screen in a nested navigator, see https://reactnavigation.org/docs/nesting-navigators#navigating-to-a-screen-in-a-nested-navigator.
+
+If you're using conditional rendering, navigation will happen automatically and you shouldn't navigate manually, see.
+
+This is a development-only warning and won't be shown in production.
+ ERROR  The action 'NAVIGATE' with payload {"name":"Register"} was not handled by any navigator.
+
+Do you have a screen named 'Register'?
+
+If you're trying to navigate to a screen in a nested navigator, see https://reactnavigation.org/docs/nesting-navigators#navigating-to-a-screen-in-a-nested-navigator.
+
+If you're using conditional rendering, navigation will happen automatically and you shouldn't navigate manually, see.
+
+This is a development-only warning and won't be shown in production.
+ ERROR  The action 'NAVIGATE' with payload {"name":"Register"} was not handled by any navigator.
+
+Do you have a screen named 'Register'?
+
+If you're trying to navigate to a screen in a nested navigator, see https://reactnavigation.org/docs/nesting-navigators#navigating-to-a-screen-in-a-nested-navigator.
+
+If you're using conditional rendering, navigation will happen automatically and you shouldn't navigate manually, see.
+
+This is a development-only warning and won't be shown in production.
+ ERROR  The action 'NAVIGATE' with payload {"name":"Register"} was not handled by any navigator.
+
+Do you have a screen named 'Register'?
+
+If you're trying to navigate to a screen in a nested navigator, see https://reactnavigation.org/docs/nesting-navigators#navigating-to-a-screen-in-a-nested-navigator.
+
+If you're using conditional rendering, navigation will happen automatically and you shouldn't navigate manually, see.
+
+This is a development-only warning and won't be shown in production.
+ ERROR  The action 'NAVIGATE' with payload {"name":"Register"} was not handled by any navigator.
+
+Do you have a screen named 'Register'?
+
+If you're trying to navigate to a screen in a nested navigator, see https://reactnavigation.org/docs/nesting-navigators#navigating-to-a-screen-in-a-nested-navigator.
+
+If you're using conditional rendering, navigation will happen automatically and you shouldn't navigate manually, see.
+
+This is a development-only warning and won't be shown in production.
+ ERROR  The action 'NAVIGATE' with payload {"name":"Register"} was not handled by any navigator.
+
+Do you have a screen named 'Register'?
+
+If you're trying to navigate to a screen in a nested navigator, see https://reactnavigation.org/docs/nesting-navigators#navigating-to-a-screen-in-a-nested-navigator.
+
+If you're using conditional rendering, navigation will happen automatically and you shouldn't navigate manually, see.
+
+This is a development-only warning and won't be shown in production.
+ ERROR  The action 'NAVIGATE' with payload {"name":"Register"} was not handled by any navigator.
+
+Do you have a screen named 'Register'?
+
+If you're trying to navigate to a screen in a nested navigator, see https://reactnavigation.org/docs/nesting-navigators#navigating-to-a-screen-in-a-nested-navigator.
+
+If you're using conditional rendering, navigation will happen automatically and you shouldn't navigate manually, see.
+
+This is a development-only warning and won't be shown in production.
+ ERROR  The action 'NAVIGATE' with payload {"name":"KnorrRewards"} was not handled by any navigator.
+
+Do you have a screen named 'KnorrRewards'?
+
+If you're trying to navigate to a screen in a nested navigator, see https://reactnavigation.org/docs/nesting-navigators#navigating-to-a-screen-in-a-nested-navigator.
+
+If you're using conditional rendering, navigation will happen automatically and you shouldn't navigate manually, see.
+
+This is a development-only warning and won't be shown in production.
+ WARN  The <CameraView> component does not support children. This may lead to inconsistent behaviour or crashes. If you want to render content on top of the Camera, consider using absolute positioning.
+ ERROR  The action 'NAVIGATE' with payload {"name":"Accueil"} was not handled by any navigator.
+
+Do you have a screen named 'Accueil'?
+
+If you're trying to navigate to a screen in a nested navigator, see https://reactnavigation.org/docs/nesting-navigators#navigating-to-a-screen-in-a-nested-navigator.
+
+If you're using conditional rendering, navigation will happen automatically and you shouldn't navigate manually, see.
+
+This is a development-only warning and won't be shown in production.
+› Stopped server
+root@Manu:/home/EDHEC/git#
+
+il faut corriger sa, plus quelque probleme de redirection lorsque on va dans modifier un profil > modifier profil knorr post > modifier profil, ensuite la barre sur le screen de liste de courses, celle qui contient le nombre total d'article et le pourcentage de progression des courses est trop grosse et ne sert a rien e l'etat, j'aime bien la progression des courses mais je veux que ce soit plus subtil que ce gros truc qui prend l'entiereter de l'ecran, toujours impossible de poste quoique ce soit
