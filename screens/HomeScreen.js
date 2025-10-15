@@ -16,8 +16,11 @@ import { auth, db } from '../firebaseConfig';
 import { Ionicons } from '@expo/vector-icons';
 import { useIsFocused } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
+import QuickAccessMenu from '../components/QuickAccessMenu';
+import { useNavigation } from '../hooks/useNavigation';
 
-const HomeScreen = ({ navigation }) => {
+const HomeScreen = () => {
+  const navigation = useNavigation();
   const [shoppingList, setShoppingList] = useState([]);
   const [newItem, setNewItem] = useState('');
   const [isFlat, setIsFlat] = useState(false);
@@ -161,7 +164,7 @@ const HomeScreen = ({ navigation }) => {
       }
     }
 
-    navigation.navigate('BarcodeScanner');
+    navigation.goToBarcodeScanner();
     setIsFlat(false);
   };
 
@@ -227,7 +230,7 @@ const HomeScreen = ({ navigation }) => {
           </View>
           <TouchableOpacity
             style={styles.profileButton}
-            onPress={() => navigation.navigate('Profile')}
+            onPress={navigation.goToProfile}
           >
             <Ionicons name="person-circle" size={40} color="#fff" />
           </TouchableOpacity>
@@ -333,7 +336,7 @@ const HomeScreen = ({ navigation }) => {
       <View style={styles.quickActions}>
         <TouchableOpacity
           style={styles.quickAction}
-          onPress={() => navigation.navigate('BarcodeScanner')}
+          onPress={navigation.goToBarcodeScanner}
         >
           <LinearGradient
             colors={['#3498db', '#2980b9']}
@@ -346,7 +349,7 @@ const HomeScreen = ({ navigation }) => {
 
         <TouchableOpacity
           style={styles.quickAction}
-          onPress={() => navigation.navigate('Fridge')}
+          onPress={navigation.goToFridge}
         >
           <LinearGradient
             colors={['#9b59b6', '#8e44ad']}
@@ -357,6 +360,9 @@ const HomeScreen = ({ navigation }) => {
           </LinearGradient>
         </TouchableOpacity>
       </View>
+      
+      {/* Menu d'accès rapide pour navigation */}
+      <QuickAccessMenu />
     </View>
   );
 };

@@ -7,16 +7,21 @@ import {
   StyleSheet,
   Alert,
   KeyboardAvoidingView,
-  Platform
+  Platform,
+  ActivityIndicator
 } from 'react-native';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../firebaseConfig';
 import { Ionicons } from '@expo/vector-icons';
+import googleAuthService from '../services/googleAuthService.crossplatform';
+import { useNavigation } from '../hooks/useNavigation';
 
-const LoginScreen = ({ navigation }) => {
+const LoginScreen = () => {
+  const navigation = useNavigation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -43,6 +48,25 @@ const LoginScreen = ({ navigation }) => {
       Alert.alert('Erreur', errorMessage);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setGoogleLoading(true);
+    try {
+      const result = await googleAuthService.signInWithGoogle();
+      
+      if (result.success) {
+        // La navigation sera gérée automatiquement par onAuthStateChanged
+        console.log('Connexion Google réussie:', result.user.email);
+      } else {
+        Alert.alert('Erreur', result.error);
+      }
+    } catch (error) {
+      console.error('Erreur Google Login:', error);
+      Alert.alert('Erreur', 'Impossible de se connecter avec Google');
+    } finally {
+      setGoogleLoading(false);
     }
   };
 
@@ -94,27 +118,40 @@ const LoginScreen = ({ navigation }) => {
 
           <TouchableOpacity
             style={styles.linkContainer}
-            onPress={() => navigation.navigate('Register')}
+            onPress={navigation.goToRegister}
           >
             <Text style={styles.linkText}>
               Pas encore de compte ? <Text style={styles.linkBold}>S'inscrire</Text>
             </Text>
           </TouchableOpacity>
+
+          {/* 🧪 Bouton de test temporaire */}
+          <TouchableOpacity
+            style={styles.testButton}
+            onPress={() => navigation.navigate('GoogleAuthTest')}
+          >
+            <Text style={styles.testButtonText}>🧪 Tester Google Auth</Text>
+          </TouchableOpacity>
         </View>
 
-        {/* Options login social (V2) */}
+        {/* Options login social */}
         <View style={styles.socialSection}>
           <Text style={styles.orText}>Ou se connecter avec</Text>
           <View style={styles.socialButtons}>
             <TouchableOpacity
-              style={styles.socialButton}
-              onPress={() => Alert.alert('Bientôt disponible', 'La connexion Google sera disponible dans la version 2.0')}
+              style={[styles.socialButton, googleLoading && styles.buttonDisabled]}
+              onPress={handleGoogleLogin}
+              disabled={googleLoading}
             >
-              <Ionicons name="logo-google" size={24} color="#DB4437" />
+              {googleLoading ? (
+                <ActivityIndicator size="small" color="#DB4437" />
+              ) : (
+                <Ionicons name="logo-google" size={24} color="#DB4437" />
+              )}
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.socialButton}
-              onPress={() => Alert.alert('Bientôt disponible', 'La connexion Apple sera disponible dans la version 2.0')}
+              onPress={() => Alert.alert('Bientôt disponible', 'La connexion Apple sera disponible dans une prochaine version')}
             >
               <Ionicons name="logo-apple" size={24} color="#000" />
             </TouchableOpacity>
@@ -215,6 +252,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#ddd',
+  },
+  testButton: {
+    backgroundColor: '#6c757d',
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  testButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
 });
 

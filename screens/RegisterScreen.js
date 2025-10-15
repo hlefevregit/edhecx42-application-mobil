@@ -6,13 +6,18 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
-  Alert
+  Alert,
+  ActivityIndicator
 } from 'react-native';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../firebaseConfig';
+import { Ionicons } from '@expo/vector-icons';
+import googleAuthService from '../services/googleAuthService.crossplatform';
+import { useNavigation } from '../hooks/useNavigation';
 
-const RegisterScreen = ({ navigation }) => {
+const RegisterScreen = () => {
+  const navigation = useNavigation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
@@ -27,6 +32,10 @@ const RegisterScreen = ({ navigation }) => {
   // Consentement RGPD
   const [gdprGeolocation, setGdprGeolocation] = useState(false);
   const [gdprData, setGdprData] = useState(false);
+  
+  // États de chargement
+  const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   const dietStyles = ['omnivore', 'végétarien', 'vegan', 'flexitarien'];
 
@@ -83,6 +92,27 @@ const RegisterScreen = ({ navigation }) => {
     } catch (error) {
       console.error('Erreur inscription:', error);
       Alert.alert('Erreur', error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleRegister = async () => {
+    setGoogleLoading(true);
+    try {
+      const result = await googleAuthService.signInWithGoogle();
+      
+      if (result.success) {
+        // La navigation sera gérée automatiquement par onAuthStateChanged
+        console.log('Inscription Google réussie:', result.user.email);
+      } else {
+        Alert.alert('Erreur', result.error);
+      }
+    } catch (error) {
+      console.error('Erreur Google Register:', error);
+      Alert.alert('Erreur', 'Impossible de créer un compte avec Google');
+    } finally {
+      setGoogleLoading(false);
     }
   };
 
@@ -203,11 +233,36 @@ const RegisterScreen = ({ navigation }) => {
         </TouchableOpacity>
       </View>
 
-      <TouchableOpacity style={styles.button} onPress={handleRegister}>
-        <Text style={styles.buttonText}>S'inscrire</Text>
+      <TouchableOpacity 
+        style={[styles.button, loading && styles.buttonDisabled]} 
+        onPress={handleRegister}
+        disabled={loading}
+      >
+        <Text style={styles.buttonText}>
+          {loading ? 'Création...' : 'S\'inscrire'}
+        </Text>
       </TouchableOpacity>
 
-      <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+      {/* Options inscription sociale */}
+      <View style={styles.socialSection}>
+        <Text style={styles.orText}>Ou s'inscrire avec</Text>
+        <TouchableOpacity
+          style={[styles.googleButton, googleLoading && styles.buttonDisabled]}
+          onPress={handleGoogleRegister}
+          disabled={googleLoading}
+        >
+          {googleLoading ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <>
+              <Ionicons name="logo-google" size={20} color="#fff" style={styles.googleIcon} />
+              <Text style={styles.googleButtonText}>Continuer avec Google</Text>
+            </>
+          )}
+        </TouchableOpacity>
+      </View>
+
+      <TouchableOpacity onPress={navigation.goToLogin}>
         <Text style={styles.link}>Déjà un compte ? Se connecter</Text>
       </TouchableOpacity>
     </ScrollView>
@@ -307,9 +362,38 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 15,
   },
+  buttonDisabled: {
+    backgroundColor: '#95a5a6',
+  },
   buttonText: {
     color: '#fff',
     fontSize: 18,
+    fontWeight: 'bold',
+  },
+  socialSection: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  orText: {
+    fontSize: 14,
+    color: '#999',
+    marginBottom: 15,
+  },
+  googleButton: {
+    backgroundColor: '#DB4437',
+    padding: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    width: '100%',
+  },
+  googleIcon: {
+    marginRight: 10,
+  },
+  googleButtonText: {
+    color: '#fff',
+    fontSize: 16,
     fontWeight: 'bold',
   },
   link: {
