@@ -15,6 +15,7 @@ import { auth } from '../firebaseConfig';
 import { Ionicons } from '@expo/vector-icons';
 import googleAuthService from '../services/googleAuthService.crossplatform';
 import { useNavigation } from '../hooks/useNavigation';
+import ExpoGoWarning from '../components/ExpoGoWarning'; // Ajout de l'avertissement
 
 const LoginScreen = () => {
   const navigation = useNavigation();
@@ -22,6 +23,7 @@ const LoginScreen = () => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [showExpoWarning, setShowExpoWarning] = useState(true); // État pour l'avertissement
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -83,6 +85,9 @@ const LoginScreen = () => {
           <Text style={styles.subtitle}>Gérez votre alimentation simplement</Text>
         </View>
 
+        {/* Avertissement Expo Go */}
+        {showExpoWarning && <ExpoGoWarning onDismiss={() => setShowExpoWarning(false)} />}
+
         {/* Formulaire */}
         <View style={styles.form}>
           <Text style={styles.label}>Email</Text>
@@ -126,12 +131,12 @@ const LoginScreen = () => {
           </TouchableOpacity>
 
           {/* 🧪 Bouton de test temporaire */}
-          <TouchableOpacity
+          {/* <TouchableOpacity
             style={styles.testButton}
             onPress={() => navigation.navigate('GoogleAuthTest')}
           >
             <Text style={styles.testButtonText}>🧪 Tester Google Auth</Text>
-          </TouchableOpacity>
+          </TouchableOpacity> */}
         </View>
 
         {/* Options login social */}

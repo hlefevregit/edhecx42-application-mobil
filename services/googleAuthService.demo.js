@@ -1,4 +1,10 @@
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
+// Import conditionnel pour compatibilité Expo Go
+let GoogleSignin;
+try {
+  GoogleSignin = require('@react-native-google-signin/google-signin').GoogleSignin;
+} catch (error) {
+  console.log('📱 Module Google Sign-In non disponible avec Expo Go (mode demo)');
+}
 import { signInWithCredential, GoogleAuthProvider } from 'firebase/auth';
 import { auth, db } from '../firebaseConfig';
 import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';

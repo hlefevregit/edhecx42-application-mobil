@@ -13,6 +13,7 @@ import SearchScreen from '../screens/SearchScreen';
 import CommentsScreen from '../screens/CommentsScreen';
 import GoogleAuthTest from '../screens/GoogleAuthTestSimple';
 import NavigationDemoScreen from '../screens/NavigationDemoScreen';
+import WebLogoutDebugger from '../components/WebLogoutDebugger';
 
 const Stack = createNativeStackNavigator();
 
@@ -120,6 +121,18 @@ const MainNavigator = () => {
           presentation: 'modal'
         }}
       />
+
+      {/* 🧪 Test Web Logout */}
+      <Stack.Screen 
+        name="WebLogoutDebugger" 
+        component={WebLogoutDebugger}
+        options={{
+          headerShown: true, 
+          title: '🧪 Debug Logout Web',
+          presentation: 'modal'
+        }}
+      />
+
     </Stack.Navigator>
   );
 };

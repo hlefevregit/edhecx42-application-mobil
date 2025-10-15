@@ -14,9 +14,8 @@ export default {
     },
     ios: {
       supportsTablet: true,
-      // Configuration Google Sign-In pour iOS
-      googleServicesFile: "./GoogleService-Info.plist", // À ajouter plus tard
       bundleIdentifier: "com.foodapp.mvp"
+      // googleServicesFile: "./GoogleService-Info.plist", // À ajouter quand vous l'aurez téléchargé
     },
     android: {
       adaptiveIcon: {
@@ -24,15 +23,14 @@ export default {
         backgroundColor: "#ffffff"
       },
       edgeToEdgeEnabled: true,
-      // Configuration Google Sign-In pour Android
-      googleServicesFile: "./google-services.json", // À ajouter plus tard
-      package: "com.foodapp.mvp"
+      package: "com.foodapp.mvp",
+      googleServicesFile: "./google-services.json" // ✅ Réactivé car le fichier existe
     },
     web: {
       favicon: "./assets/favicon.png"
     },
     plugins: [
-      "@react-native-google-signin/google-signin"
+      // "@react-native-google-signin/google-signin" // Désactivé temporairement pour Expo Go
     ],
     extra: {
       // Variables d'environnement pour l'auth Google

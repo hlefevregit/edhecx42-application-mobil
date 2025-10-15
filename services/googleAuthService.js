@@ -1,4 +1,11 @@
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
+// Import conditionnel pour compatibilité Expo Go
+let GoogleSignin;
+try {
+  GoogleSignin = require('@react-native-google-signin/google-signin').GoogleSignin;
+} catch (error) {
+  console.log('📱 Module Google Sign-In non disponible avec Expo Go');
+}
+
 import { signInWithCredential, GoogleAuthProvider } from 'firebase/auth';
 import { auth, db } from '../firebaseConfig';
 import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
@@ -12,17 +19,21 @@ class GoogleAuthService {
   // Configuration Google Sign-In
   configure() {
     try {
-      GoogleSignin.configure({
-        // WebClientId est OBLIGATOIRE - récupérer depuis Firebase Console > Authentication > Sign-in method > Google
-        webClientId: '922969943051-qrkuqeou6jkvjge8jmmb8vd0i01vbolh.apps.googleusercontent.com',
-        offlineAccess: true, // Pour obtenir le refresh token
-        hostedDomain: '', // Domaine spécifique (optionnel)
-        forceCodeForRefreshToken: true, // Force le refresh token
-        accountName: '', // Nom du compte (optionnel)
-        
-        // iOS Client ID (optionnel, améliore les performances sur iOS)
-        // iosClientId: 'VOTRE_IOS_CLIENT_ID.apps.googleusercontent.com',
-      });
+      if (GoogleSignin) {
+        GoogleSignin.configure({
+          // WebClientId est OBLIGATOIRE - récupérer depuis Firebase Console > Authentication > Sign-in method > Google
+          webClientId: '922969943051-qrkuqeou6jkvjge8jmmb8vd0i01vbolh.apps.googleusercontent.com',
+          offlineAccess: true, // Pour obtenir le refresh token
+          hostedDomain: '', // Domaine spécifique (optionnel)
+          forceCodeForRefreshToken: true, // Force le refresh token
+          accountName: '', // Nom du compte (optionnel)
+          
+          // iOS Client ID (optionnel, améliore les performances sur iOS)
+          // iosClientId: 'VOTRE_IOS_CLIENT_ID.apps.googleusercontent.com',
+        });
+      } else {
+        console.log('📱 Mode démo Expo Go - Google Sign-In simulé');
+      }
     } catch (error) {
       console.error('Erreur configuration Google Sign-In:', error);
     }
@@ -31,6 +42,11 @@ class GoogleAuthService {
   // Connexion avec Google
   async signInWithGoogle() {
     try {
+      if (!GoogleSignin) {
+        // Mode démo pour Expo Go
+        return this.signInDemo();
+      }
+      
       // 1. Vérifier si Google Play Services est disponible
       await GoogleSignin.hasPlayServices();
       
@@ -66,6 +82,41 @@ class GoogleAuthService {
         isRetryable,
         suggestion,
         originalError: error
+      };
+    }
+  }
+
+  // Mode démo pour Expo Go
+  async signInDemo() {
+    try {
+      // Simuler une connexion réussie
+      await new Promise(resolve => setTimeout(resolve, 1500)); // Délai réaliste
+      
+      const demoUser = {
+        success: true,
+        user: {
+          uid: 'demo_user_' + Date.now(),
+          email: 'demo@foodapp.com',
+          displayName: 'Utilisateur Démo',
+          photoURL: 'https://via.placeholder.com/150/4CAF50/FFFFFF/?text=Demo'
+        },
+        googleUser: {
+          id: 'demo_google_id',
+          name: 'Utilisateur Démo',
+          email: 'demo@foodapp.com',
+          photo: 'https://via.placeholder.com/150/4CAF50/FFFFFF/?text=Demo'
+        },
+        isDemo: true
+      };
+      
+      console.log('🎯 Mode démo Expo Go - Connexion simulée réussie');
+      return demoUser;
+      
+    } catch (error) {
+      return {
+        success: false,
+        error: 'Erreur dans le mode démo',
+        isDemo: true
       };
     }
   }
