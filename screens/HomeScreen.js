@@ -7,7 +7,8 @@ import {
   FlatList,
   StyleSheet,
   Alert,
-  Animated
+  Animated,
+  Platform
 } from 'react-native';
 import { DeviceMotion } from 'expo-sensors';
 import { useCameraPermissions } from 'expo-camera';
@@ -55,33 +56,30 @@ const HomeScreen = () => {
     }
   }, [isFlat]);
 
-  // Détection orientation
+  // ✅ Détection d'orientation simplifiée (optionnelle)
   useEffect(() => {
     let subscription;
 
-    const checkOrientation = async () => {
-      if (!isFocused) return;
+    const setupMotionDetection = () => {
+      if (Platform.OS === 'web') {
+        // Pas de détection de mouvement sur web
+        return;
+      }
 
-      const isAvailable = await DeviceMotion.isAvailableAsync();
-      if (!isAvailable) return;
-
-      subscription = DeviceMotion.addListener(({ rotation }) => {
-        const beta = Math.abs(rotation.beta);
-        const isDeviceFlat = beta > 1.3 && beta < 1.8;
-        
-        if (isDeviceFlat && !isFlat && isFocused) {
-          setIsFlat(true);
-          activateScannerAuto();
-        } else if (!isDeviceFlat && isFlat) {
-          setIsFlat(false);
+      // Sur mobile, détecter si le téléphone est à plat
+      subscription = DeviceMotion.addListener((data) => {
+        const { rotation } = data;
+        if (rotation) {
+          const isPhoneFlat = Math.abs(rotation.beta) < 0.2;
+          setIsFlat(isPhoneFlat);
         }
       });
 
-      DeviceMotion.setUpdateInterval(300);
+      DeviceMotion.setUpdateInterval(1000);
     };
 
     if (isFocused) {
-      checkOrientation();
+      setupMotionDetection();
     }
 
     return () => {
@@ -90,7 +88,7 @@ const HomeScreen = () => {
       }
       setIsFlat(false);
     };
-  }, [isFocused, isFlat]);
+  }, [isFocused]);
 
   const loadShoppingList = async () => {
     if (!userId) return;
