@@ -1,6 +1,6 @@
 export default {
   expo: {
-    name: "food-app-mvp",
+    name: "FoodApp",
     slug: "food-app-mvp", 
     version: "1.0.0",
     orientation: "portrait",
@@ -37,6 +37,7 @@ export default {
       googleWebClientId: process.env.GOOGLE_WEB_CLIENT_ID,
       googleAndroidClientId: process.env.GOOGLE_ANDROID_CLIENT_ID,
       googleIosClientId: process.env.GOOGLE_IOS_CLIENT_ID,
+      apiUrl: process.env.API_URL || 'http://localhost:3000/api',
     }
   }
 };

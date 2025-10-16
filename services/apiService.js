@@ -1,6 +1,26 @@
-const API_URL = 'http://localhost:3000/api'; // Changez selon votre configuration
+import Constants from 'expo-constants';
+
+const API_URL = Constants.expoConfig?.extra?.apiUrl || 'http://localhost:3000/api';
 
 class ApiService {
+  async handleResponse(response) {
+    const contentType = response.headers.get('content-type');
+    
+    if (!contentType || !contentType.includes('application/json')) {
+      const text = await response.text();
+      console.error('Non-JSON response:', text);
+      throw new Error('Server returned non-JSON response');
+    }
+    
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.error || 'Request failed');
+    }
+    
+    return data;
+  }
+
   // Authentification
   async register(userData) {
     try {
@@ -12,11 +32,7 @@ class ApiService {
         body: JSON.stringify(userData),
       });
       
-      if (!response.ok) {
-        throw new Error('Registration failed');
-      }
-      
-      return await response.json();
+      return await this.handleResponse(response);
     } catch (error) {
       console.error('Register error:', error);
       throw error;
@@ -33,11 +49,7 @@ class ApiService {
         body: JSON.stringify({ email, password }),
       });
       
-      if (!response.ok) {
-        throw new Error('Login failed');
-      }
-      
-      return await response.json();
+      return await this.handleResponse(response);
     } catch (error) {
       console.error('Login error:', error);
       throw error;
@@ -55,11 +67,7 @@ class ApiService {
         },
       });
       
-      if (!response.ok) {
-        throw new Error('Failed to get user profile');
-      }
-      
-      return await response.json();
+      return await this.handleResponse(response);
     } catch (error) {
       console.error('Get profile error:', error);
       throw error;
@@ -77,11 +85,7 @@ class ApiService {
         body: JSON.stringify(userData),
       });
       
-      if (!response.ok) {
-        throw new Error('Failed to update profile');
-      }
-      
-      return await response.json();
+      return await this.handleResponse(response);
     } catch (error) {
       console.error('Update profile error:', error);
       throw error;
@@ -91,6 +95,8 @@ class ApiService {
   // Frigo
   async getFridgeItems(userId, token) {
     try {
+      console.log(`Fetching fridge items from: ${API_URL}/fridge/${userId}`);
+      
       const response = await fetch(`${API_URL}/fridge/${userId}`, {
         method: 'GET',
         headers: {
@@ -99,11 +105,7 @@ class ApiService {
         },
       });
       
-      if (!response.ok) {
-        throw new Error('Failed to get fridge items');
-      }
-      
-      return await response.json();
+      return await this.handleResponse(response);
     } catch (error) {
       console.error('Get fridge items error:', error);
       throw error;
@@ -112,6 +114,8 @@ class ApiService {
 
   async addFridgeItems(userId, items, token) {
     try {
+      console.log(`Adding fridge items to: ${API_URL}/fridge/${userId}`);
+      
       const response = await fetch(`${API_URL}/fridge/${userId}`, {
         method: 'POST',
         headers: {
@@ -121,13 +125,44 @@ class ApiService {
         body: JSON.stringify({ items }),
       });
       
-      if (!response.ok) {
-        throw new Error('Failed to add fridge items');
-      }
-      
-      return await response.json();
+      return await this.handleResponse(response);
     } catch (error) {
       console.error('Add fridge items error:', error);
+      throw error;
+    }
+  }
+
+  async updateFridgeItem(itemId, updates, token) {
+    try {
+      const response = await fetch(`${API_URL}/fridge/${itemId}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updates),
+      });
+      
+      return await this.handleResponse(response);
+    } catch (error) {
+      console.error('Update fridge item error:', error);
+      throw error;
+    }
+  }
+
+  async deleteFridgeItem(itemId, token) {
+    try {
+      const response = await fetch(`${API_URL}/fridge/${itemId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      return await this.handleResponse(response);
+    } catch (error) {
+      console.error('Delete fridge item error:', error);
       throw error;
     }
   }
@@ -143,11 +178,7 @@ class ApiService {
         },
       });
       
-      if (!response.ok) {
-        throw new Error('Failed to get shopping list');
-      }
-      
-      return await response.json();
+      return await this.handleResponse(response);
     } catch (error) {
       console.error('Get shopping list error:', error);
       throw error;
