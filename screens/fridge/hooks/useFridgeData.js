@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Alert } from 'react-native';
-import { doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
-import { db } from '../../../firebaseConfig';
+import apiService from '../../../services/apiService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export const useFridgeData = (userId) => {
   const [fridgeItems, setFridgeItems] = useState([]);
@@ -18,12 +18,9 @@ export const useFridgeData = (userId) => {
     
     try {
       setLoading(true);
-      const docRef = doc(db, 'fridge_items', userId);
-      const docSnap = await getDoc(docRef);
-      
-      if (docSnap.exists()) {
-        setFridgeItems(docSnap.data().items || []);
-      }
+      const token = await AsyncStorage.getItem('userToken');
+      const items = await apiService.getFridgeItems(userId, token);
+      setFridgeItems(items);
     } catch (error) {
       console.error('Erreur chargement frigo:', error);
       Alert.alert('Erreur', 'Impossible de charger le frigo');
@@ -32,66 +29,53 @@ export const useFridgeData = (userId) => {
     }
   };
 
-  const saveFridgeItems = async (items) => {
-    if (!userId) return;
-    
+  const addItems = async (newItems) => {
     try {
-      const docRef = doc(db, 'fridge_items', userId);
-      const docSnap = await getDoc(docRef);
-      
-      const data = {
-        items: items,
-        lastUpdated: new Date(),
-        userId: userId
-      };
-      
-      if (docSnap.exists()) {
-        await updateDoc(docRef, data);
-      } else {
-        await setDoc(docRef, data);
-      }
-      
-      console.log('✅ Frigo sauvegardé');
+      const token = await AsyncStorage.getItem('userToken');
+      await apiService.addFridgeItems(userId, newItems, token);
+      await loadFridgeItems();
     } catch (error) {
-      console.error('Erreur sauvegarde:', error);
-      Alert.alert('Erreur', 'Impossible de sauvegarder');
+      console.error('Erreur ajout items:', error);
+      Alert.alert('Erreur', 'Impossible d\'ajouter les items');
     }
   };
 
-  const addItems = (newItems) => {
-    const updatedItems = [...fridgeItems, ...newItems];
-    setFridgeItems(updatedItems);
-    saveFridgeItems(updatedItems);
+  const updateItem = async (itemId, updates) => {
+    try {
+      const token = await AsyncStorage.getItem('userToken');
+      await apiService.updateFridgeItem(itemId, updates, token);
+      await loadFridgeItems();
+    } catch (error) {
+      console.error('Erreur mise à jour:', error);
+      Alert.alert('Erreur', 'Impossible de modifier l\'item');
+    }
   };
 
-  const updateItem = (itemId, updates) => {
-    const updatedItems = fridgeItems.map(item =>
-      item.id === itemId ? { ...item, ...updates } : item
-    );
-    setFridgeItems(updatedItems);
-    saveFridgeItems(updatedItems);
+  const deleteItem = async (itemId) => {
+    try {
+      const token = await AsyncStorage.getItem('userToken');
+      await apiService.deleteFridgeItem(itemId, token);
+      await loadFridgeItems();
+    } catch (error) {
+      console.error('Erreur suppression:', error);
+      Alert.alert('Erreur', 'Impossible de supprimer l\'item');
+    }
   };
 
-  const deleteItem = (itemId) => {
-    const updatedItems = fridgeItems.filter(item => item.id !== itemId);
-    setFridgeItems(updatedItems);
-    saveFridgeItems(updatedItems);
-  };
-
-  const increaseQuantity = (itemId) => {
+  const increaseQuantity = async (itemId) => {
     const item = fridgeItems.find(i => i.id === itemId);
     if (item) {
-      updateItem(itemId, { quantity: item.quantity + 1 });
+      await updateItem(itemId, { quantity: item.quantity + 1 });
     }
   };
 
-  const decreaseQuantity = (itemId) => {
+  const decreaseQuantity = async (itemId) => {
     const item = fridgeItems.find(i => i.id === itemId);
     if (item) {
       if (item.quantity > 1) {
-        updateItem(itemId, { quantity: item.quantity - 1 });
+        await updateItem(itemId, { quantity: item.quantity - 1 });
       } else {
-        deleteItem(itemId);
+        await deleteItem(itemId);
       }
     }
   };
@@ -100,7 +84,6 @@ export const useFridgeData = (userId) => {
     fridgeItems,
     loading,
     loadFridgeItems,
-    saveFridgeItems,
     addItems,
     updateItem,
     deleteItem,
