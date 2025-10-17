@@ -12,11 +12,10 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Video } from 'expo-av';
-import { addDoc, collection, updateDoc, doc, increment, setDoc } from 'firebase/firestore'; // ✅ setDoc ajouté
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { auth, db, storage } from '../../firebaseConfig';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import apiService from '../../services/apiService';
+import { auth } from '../../firebaseConfig'; // Juste pour récupérer l'userId actuel
 
 const CreateKnorrPostScreen = ({ navigation }) => {
   const [mediaUri, setMediaUri] = useState(null);
@@ -38,14 +37,14 @@ const CreateKnorrPostScreen = ({ navigation }) => {
   const userName = auth.currentUser?.displayName || 'Utilisateur';
 
   const KNORR_PRODUCTS = [
-    { id: 'knorr_1', name: 'Knorr Bouillon de Légumes', category: 'bouillon', image: 'https://via.placeholder.com/100' },
-    { id: 'knorr_2', name: 'Knorr Bouillon de Poule', category: 'bouillon', image: 'https://via.placeholder.com/100' },
-    { id: 'knorr_3', name: 'Knorr Soupe Tomate', category: 'soupe', image: 'https://via.placeholder.com/100' },
-    { id: 'knorr_4', name: 'Knorr Pasta Box Carbonara', category: 'plat', image: 'https://via.placeholder.com/100' },
-    { id: 'knorr_5', name: 'Knorr Sauce Curry', category: 'sauce', image: 'https://via.placeholder.com/100' },
-    { id: 'knorr_6', name: 'Knorr Purée Nature', category: 'accompagnement', image: 'https://via.placeholder.com/100' },
-    { id: 'knorr_7', name: 'Knorr Risotto Champignons', category: 'plat', image: 'https://via.placeholder.com/100' },
-    { id: 'knorr_8', name: 'Knorr Sauce Béchamel', category: 'sauce', image: 'https://via.placeholder.com/100' },
+    { id: 'knorr_1', name: 'Knorr Bouillon de Légumes', category: 'bouillon', image: 'https://picsum.photos/100' },
+    { id: 'knorr_2', name: 'Knorr Bouillon de Poule', category: 'bouillon', image: 'https://picsum.photos/100' },
+    { id: 'knorr_3', name: 'Knorr Soupe Tomate', category: 'soupe', image: 'https://picsum.photos/100' },
+    { id: 'knorr_4', name: 'Knorr Pasta Box Carbonara', category: 'plat', image: 'https://picsum.photos/100' },
+    { id: 'knorr_5', name: 'Knorr Sauce Curry', category: 'sauce', image: 'https://picsum.photos/100' },
+    { id: 'knorr_6', name: 'Knorr Purée Nature', category: 'accompagnement', image: 'https://picsum.photos/100' },
+    { id: 'knorr_7', name: 'Knorr Risotto Champignons', category: 'plat', image: 'https://picsum.photos/100' },
+    { id: 'knorr_8', name: 'Knorr Sauce Béchamel', category: 'sauce', image: 'https://picsum.photos/100' },
   ];
 
   const pickMedia = async () => {
@@ -57,16 +56,15 @@ const CreateKnorrPostScreen = ({ navigation }) => {
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.All,
+      mediaTypes: ImagePicker.MediaTypeOptions.Images, // Seulement images pour l'instant
       allowsEditing: true,
       quality: 0.8,
-      videoMaxDuration: 60,
     });
 
     if (!result.canceled) {
       const asset = result.assets[0];
       setMediaUri(asset.uri);
-      setMediaType(asset.type);
+      setMediaType('image');
     }
   };
 
@@ -79,16 +77,15 @@ const CreateKnorrPostScreen = ({ navigation }) => {
     }
 
     const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.All,
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       quality: 0.8,
-      videoMaxDuration: 60,
     });
 
     if (!result.canceled) {
       const asset = result.assets[0];
       setMediaUri(asset.uri);
-      setMediaType(asset.type);
+      setMediaType('image');
     }
   };
 
@@ -104,28 +101,9 @@ const CreateKnorrPostScreen = ({ navigation }) => {
     }
   };
 
-  // ✅ UPLOAD FIREBASE STORAGE CORRIGÉ
-  const uploadMedia = async (uri) => {
-    try {
-      const response = await fetch(uri);
-      const blob = await response.blob();
-      
-      const filename = `knorr_posts/${userId}_${Date.now()}.${mediaType === 'video' ? 'mp4' : 'jpg'}`;
-      const storageRef = ref(storage, filename);
-      
-      await uploadBytes(storageRef, blob);
-      const downloadURL = await getDownloadURL(storageRef);
-      
-      return downloadURL;
-    } catch (error) {
-      console.error('Erreur upload:', error);
-      throw new Error('Impossible d\'uploader le fichier');
-    }
-  };
-
   const publishPost = async () => {
     if (!mediaUri) {
-      Alert.alert('Erreur', 'Ajoutez une photo ou vidéo');
+      Alert.alert('Erreur', 'Ajoutez une photo');
       return;
     }
 
@@ -149,83 +127,41 @@ const CreateKnorrPostScreen = ({ navigation }) => {
     setUploading(true);
 
     try {
-      // ✅ Upload média
-      const mediaUrl = await uploadMedia(mediaUri);
-
       // Parser hashtags
       const hashtagsArray = hashtags
         .split(' ')
         .filter(tag => tag.startsWith('#'))
         .map(tag => tag.trim());
 
-      // ✅ Créer le post
-      const postData = {
-        userId,
-        userName,
-        userAvatar: auth.currentUser?.photoURL || null,
-        userLevel: 1,
+      // Préparer les données du post
+      const postContent = {
         caption,
-        hashtags: hashtagsArray,
-        mediaUrl,
-        type: mediaType,
-        knorrProducts: selectedProducts,
-        likes: 0,
-        views: 0,
-        comments: 0,
-        shares: 0,
-        saves: 0,
-        likedBy: [],
-        createdAt: new Date(),
-        status: 'active',
-        isPromoted: false,
-        allergens: [],
-        dietType: 'omnivore',
-        recipe: isRecipe ? {
-          prepTime: parseInt(recipeData.prepTime) || 0,
-          cookTime: parseInt(recipeData.cookTime) || 0,
-          servings: parseInt(recipeData.servings) || 0,
+        hashtags: hashtagsArray.join(' '),
+        knorrProducts: JSON.stringify(selectedProducts),
+        userName,
+        isRecipe: isRecipe.toString(),
+        ...(isRecipe && {
+          prepTime: recipeData.prepTime,
+          cookTime: recipeData.cookTime,
+          servings: recipeData.servings,
           difficulty: recipeData.difficulty
-        } : null
+        })
       };
 
-      await addDoc(collection(db, 'knorr_posts'), postData);
+      console.log('Creating post with:', { userId, content: postContent, imageUri: mediaUri });
 
-      // ✅ Mettre à jour profil (avec setDoc si n'existe pas)
-      const userRef = doc(db, 'knorr_user_profiles', userId);
-      const userDoc = await getDoc(userRef);
+      // Appeler l'API backend
+      const result = await apiService.createPost({
+        userId,
+        content: JSON.stringify(postContent),
+        imageUri: mediaUri
+      });
 
-      if (userDoc.exists()) {
-        await updateDoc(userRef, {
-          'stats.totalPosts': increment(1),
-          knorrXP: increment(10),
-          rewardPoints: increment(5)
-        });
-      } else {
-        // Créer le profil si n'existe pas
-        await setDoc(userRef, {
-          userId,
-          knorrLevel: 1,
-          knorrXP: 10,
-          rewardPoints: 5,
-          badges: [],
-          stats: {
-            totalPosts: 1,
-            totalViews: 0,
-            totalLikes: 0
-          },
-          followers: [],
-          following: [],
-          contentPreferences: {
-            favoriteKnorrProducts: [],
-            likedPosts: [],
-            savedPosts: []
-          }
-        });
-      }
+      console.log('Post created:', result);
 
       Alert.alert(
         '🎉 Post publié !',
-        'Votre création Knorr est en ligne ! +10 XP',
+        'Votre création Knorr est en ligne !',
         [
           { text: 'OK', onPress: () => navigation.goBack() }
         ]
@@ -294,7 +230,7 @@ const CreateKnorrPostScreen = ({ navigation }) => {
         <View style={styles.mediaSelector}>
           <TouchableOpacity style={styles.mediaSelectorButton} onPress={takeMedia}>
             <Ionicons name="camera" size={48} color="#e63946" />
-            <Text style={styles.mediaSelectorText}>Prendre photo/vidéo</Text>
+            <Text style={styles.mediaSelectorText}>Prendre photo</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.mediaSelectorButton} onPress={pickMedia}>
             <Ionicons name="images" size={48} color="#e63946" />
@@ -472,7 +408,7 @@ const CreateKnorrPostScreen = ({ navigation }) => {
       <View style={styles.xpInfo}>
         <Ionicons name="trophy" size={24} color="#f39c12" />
         <Text style={styles.xpInfoText}>
-          Vous gagnerez +10 XP et +5 points Knorr !
+          Publication réussie = satisfaction garantie !
         </Text>
       </View>
 

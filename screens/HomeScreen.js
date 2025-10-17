@@ -7,7 +7,8 @@ import {
   FlatList,
   StyleSheet,
   Alert,
-  Animated
+  Animated,
+  Platform
 } from 'react-native';
 import { DeviceMotion } from 'expo-sensors';
 import { useCameraPermissions } from 'expo-camera';
@@ -16,8 +17,11 @@ import { auth, db } from '../firebaseConfig';
 import { Ionicons } from '@expo/vector-icons';
 import { useIsFocused } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
+import QuickAccessMenu from '../components/QuickAccessMenu';
+import { useNavigation } from '../hooks/useNavigation';
 
-const HomeScreen = ({ navigation }) => {
+const HomeScreen = () => {
+  const navigation = useNavigation();
   const [shoppingList, setShoppingList] = useState([]);
   const [newItem, setNewItem] = useState('');
   const [isFlat, setIsFlat] = useState(false);
@@ -52,33 +56,30 @@ const HomeScreen = ({ navigation }) => {
     }
   }, [isFlat]);
 
-  // Détection orientation
+  // ✅ Détection d'orientation simplifiée (optionnelle)
   useEffect(() => {
     let subscription;
 
-    const checkOrientation = async () => {
-      if (!isFocused) return;
+    const setupMotionDetection = () => {
+      if (Platform.OS === 'web') {
+        // Pas de détection de mouvement sur web
+        return;
+      }
 
-      const isAvailable = await DeviceMotion.isAvailableAsync();
-      if (!isAvailable) return;
-
-      subscription = DeviceMotion.addListener(({ rotation }) => {
-        const beta = Math.abs(rotation.beta);
-        const isDeviceFlat = beta > 1.3 && beta < 1.8;
-        
-        if (isDeviceFlat && !isFlat && isFocused) {
-          setIsFlat(true);
-          activateScannerAuto();
-        } else if (!isDeviceFlat && isFlat) {
-          setIsFlat(false);
+      // Sur mobile, détecter si le téléphone est à plat
+      subscription = DeviceMotion.addListener((data) => {
+        const { rotation } = data;
+        if (rotation) {
+          const isPhoneFlat = Math.abs(rotation.beta) < 0.2;
+          setIsFlat(isPhoneFlat);
         }
       });
 
-      DeviceMotion.setUpdateInterval(300);
+      DeviceMotion.setUpdateInterval(1000);
     };
 
     if (isFocused) {
-      checkOrientation();
+      setupMotionDetection();
     }
 
     return () => {
@@ -87,7 +88,7 @@ const HomeScreen = ({ navigation }) => {
       }
       setIsFlat(false);
     };
-  }, [isFocused, isFlat]);
+  }, [isFocused]);
 
   const loadShoppingList = async () => {
     if (!userId) return;
@@ -161,7 +162,7 @@ const HomeScreen = ({ navigation }) => {
       }
     }
 
-    navigation.navigate('BarcodeScanner');
+    navigation.goToBarcodeScanner();
     setIsFlat(false);
   };
 
@@ -227,7 +228,7 @@ const HomeScreen = ({ navigation }) => {
           </View>
           <TouchableOpacity
             style={styles.profileButton}
-            onPress={() => navigation.navigate('Profile')}
+            onPress={navigation.goToProfile}
           >
             <Ionicons name="person-circle" size={40} color="#fff" />
           </TouchableOpacity>
@@ -333,7 +334,7 @@ const HomeScreen = ({ navigation }) => {
       <View style={styles.quickActions}>
         <TouchableOpacity
           style={styles.quickAction}
-          onPress={() => navigation.navigate('BarcodeScanner')}
+          onPress={navigation.goToBarcodeScanner}
         >
           <LinearGradient
             colors={['#3498db', '#2980b9']}
@@ -346,7 +347,7 @@ const HomeScreen = ({ navigation }) => {
 
         <TouchableOpacity
           style={styles.quickAction}
-          onPress={() => navigation.navigate('Fridge')}
+          onPress={navigation.goToFridge}
         >
           <LinearGradient
             colors={['#9b59b6', '#8e44ad']}
@@ -357,6 +358,9 @@ const HomeScreen = ({ navigation }) => {
           </LinearGradient>
         </TouchableOpacity>
       </View>
+      
+      {/* Menu d'accès rapide pour navigation */}
+      <QuickAccessMenu />
     </View>
   );
 };

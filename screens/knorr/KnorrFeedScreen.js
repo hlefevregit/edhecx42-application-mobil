@@ -408,7 +408,7 @@ const KnorrFeedScreen = ({ navigation }) => {
       <View style={styles.bottomNav}>
         <TouchableOpacity
           style={styles.pointsChip}
-          onPress={() => navigation.navigate('KnorrRewards')}
+          onPress={() => navigation.navigate('KnorrShop')}
         >
           <Ionicons name="gift" size={20} color="#f39c12" />
           <Text style={styles.pointsText}>

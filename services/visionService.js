@@ -1,299 +1,278 @@
 import axios from 'axios';
 import * as FileSystem from 'expo-file-system';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// ⚠️ IMPORTANT : À remplacer par votre clé API Google Cloud
-// 1. Aller sur https://console.cloud.google.com
-// 2. Activer "Cloud Vision API"
-// 3. Créer des identifiants (clé API)
 const GOOGLE_VISION_API_KEY = 'AIzaSyDLSO-InziWAzffyj9K8Sgj2Gb1S0JBsLE';
-
-// Alternative gratuite : Clarifai Food Model
-const CLARIFAI_API_KEY = 'VOTRE_CLE_CLARIFAI_ICI';
 
 class VisionService {
   constructor() {
-    this.useGoogleVision = true; // false pour utiliser Clarifai
+    this.useGoogleVision = true;
+    this.detectionHistory = [];
   }
 
-  // Convertir image en base64
-  async imageToBase64(imageUri) {
+  async analyzeImage(imageUri) {
     try {
-      // Vérifier que FileSystem est disponible
-      if (!FileSystem || !FileSystem.EncodingType) {
-        console.log('FileSystem non disponible, utilisation simulation');
-        return null;
-      }
-
-      const base64 = await FileSystem.readAsStringAsync(imageUri, {
+      const base64Image = await FileSystem.readAsStringAsync(imageUri, {
         encoding: FileSystem.EncodingType.Base64,
       });
-      return base64;
-    } catch (error) {
-      console.error('Erreur conversion base64:', error);
-      return null;
-    }
-  }
-
-  // Google Vision API - Label Detection + Object Localization
-  async analyzeWithGoogleVision(imageUri) {
-    try {
-      const base64Image = await this.imageToBase64(imageUri);
-
-      const requestBody = {
-        requests: [
-          {
-            image: {
-              content: base64Image,
-            },
-            features: [
-              {
-                type: 'LABEL_DETECTION',
-                maxResults: 15,
-              },
-              {
-                type: 'OBJECT_LOCALIZATION',
-                maxResults: 10,
-              },
-            ],
-          },
-        ],
-      };
 
       const response = await axios.post(
         `https://vision.googleapis.com/v1/images:annotate?key=${GOOGLE_VISION_API_KEY}`,
-        requestBody
+        {
+          requests: [
+            {
+              image: {
+                content: base64Image,
+              },
+              features: [
+                { type: 'LABEL_DETECTION', maxResults: 10 },
+                { type: 'OBJECT_LOCALIZATION', maxResults: 10 },
+              ],
+            },
+          ],
+        }
       );
 
-      if (response.data.responses[0].error) {
-        throw new Error(response.data.responses[0].error.message);
+      const results = response.data.responses[0];
+      const detected = [];
+
+      // Combiner labels et objets détectés
+      if (results.labelAnnotations) {
+        results.labelAnnotations.forEach((label) => {
+          if (this.isFoodRelated(label.description)) {
+            detected.push({
+              name: label.description,
+              confidence: label.score,
+              type: 'label',
+            });
+          }
+        });
       }
 
-      return this.parseGoogleVisionResults(response.data.responses[0]);
+      if (results.localizedObjectAnnotations) {
+        results.localizedObjectAnnotations.forEach((obj) => {
+          if (this.isFoodRelated(obj.name)) {
+            detected.push({
+              name: obj.name,
+              confidence: obj.score,
+              type: 'object',
+            });
+          }
+        });
+      }
+
+      // Dédupliquer et trier par confiance
+      const uniqueItems = this.deduplicateItems(detected);
+      return uniqueItems.slice(0, 10);
     } catch (error) {
-      console.error('Erreur Google Vision:', error);
+      console.error('Erreur Vision API:', error);
       throw error;
     }
   }
 
-  // Parser les résultats Google Vision
-  parseGoogleVisionResults(result) {
-    const labels = result.labelAnnotations || [];
-    const objects = result.localizedObjectAnnotations || [];
-
-    // Filtrer uniquement les aliments
+  isFoodRelated(text) {
     const foodKeywords = [
-      'food', 'fruit', 'vegetable', 'dairy', 'meat', 'beverage',
-      'cheese', 'milk', 'bread', 'egg', 'yogurt', 'tomato',
-      'carrot', 'apple', 'banana', 'orange', 'lettuce'
+      'food', 'fruit', 'vegetable', 'meat', 'dairy', 'beverage',
+      'nourriture', 'aliment', 'fruit', 'légume', 'viande', 'lait',
+      'fromage', 'yaourt', 'pain', 'boisson', 'sauce', 'condiment',
+      'apple', 'banana', 'orange', 'tomato', 'carrot', 'potato',
+      'pomme', 'banane', 'tomate', 'carotte', 'poulet', 'poisson'
     ];
 
-    const detectedItems = [];
+    const lower = text.toLowerCase();
+    return foodKeywords.some(keyword => lower.includes(keyword));
+  }
 
-    // Analyser les objets localisés
-    objects.forEach(obj => {
-      const name = obj.name.toLowerCase();
-      const isFood = foodKeywords.some(keyword => name.includes(keyword));
-      
-      if (isFood && obj.score > 0.6) {
-        detectedItems.push({
-          name: this.translateToFrench(obj.name),
-          confidence: obj.score,
-          quantity: 1,
-          source: 'object',
-        });
+  deduplicateItems(items) {
+    const seen = new Map();
+    
+    items.forEach(item => {
+      const key = item.name.toLowerCase();
+      if (!seen.has(key) || seen.get(key).confidence < item.confidence) {
+        seen.set(key, item);
       }
     });
 
-    // Analyser les labels si pas assez d'objets détectés
-    if (detectedItems.length < 3) {
-      labels.forEach(label => {
-        const name = label.description.toLowerCase();
-        const isFood = foodKeywords.some(keyword => name.includes(keyword));
-        
-        if (isFood && label.score > 0.7) {
-          const alreadyDetected = detectedItems.some(
-            item => item.name.toLowerCase() === this.translateToFrench(label.description).toLowerCase()
-          );
-          
-          if (!alreadyDetected) {
-            detectedItems.push({
-              name: this.translateToFrench(label.description),
-              confidence: label.score,
-              quantity: 1,
-              source: 'label',
-            });
-          }
-        }
-      });
-    }
-
-    return detectedItems.slice(0, 10); // Max 10 items
+    return Array.from(seen.values()).sort((a, b) => b.confidence - a.confidence);
   }
 
-  // Clarifai Food Model (Alternative gratuite)
-  async analyzeWithClarifai(imageUri) {
+  // 🔥 NOUVELLE MÉTHODE : Détection avec contexte frigo
+  async analyzeFullFridge(imageUri) {
     try {
-      const base64Image = await this.imageToBase64(imageUri);
-
-      const requestBody = {
-        inputs: [
-          {
-            data: {
-              image: {
-                base64: base64Image,
-              },
-            },
-          },
-        ],
-      };
-
-      const response = await axios.post(
-        'https://api.clarifai.com/v2/models/bd367be194cf45149e75f01d59f77ba7/outputs',
-        requestBody,
-        {
-          headers: {
-            'Authorization': `Key ${CLARIFAI_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-
-      return this.parseClarifaiResults(response.data);
+      const detected = await this.analyzeImage(imageUri);
+      
+      // Grouper par catégorie automatiquement
+      const categorized = this.categorizeItems(detected);
+      
+      // Suggérer zones de stockage
+      const withZones = this.suggestStorageZones(categorized);
+      
+      // Estimer dates de péremption
+      const withExpiry = this.estimateExpiryDates(withZones);
+      
+      return withExpiry;
     } catch (error) {
-      console.error('Erreur Clarifai:', error);
+      console.error('Erreur analyse frigo complète:', error);
       throw error;
     }
   }
 
-  // Parser résultats Clarifai
-  parseClarifaiResults(result) {
-    const concepts = result.outputs[0]?.data?.concepts || [];
-
-    return concepts
-      .filter(concept => concept.value > 0.7)
-      .slice(0, 10)
-      .map(concept => ({
-        name: this.translateToFrench(concept.name),
-        confidence: concept.value,
-        quantity: 1,
-        source: 'clarifai',
-      }));
-  }
-
-  // Traduction simple EN → FR
-  translateToFrench(englishName) {
-    const translations = {
-      // Fruits
-      'apple': 'Pomme',
-      'banana': 'Banane',
-      'orange': 'Orange',
-      'strawberry': 'Fraise',
-      'grape': 'Raisin',
-      'watermelon': 'Pastèque',
-      'lemon': 'Citron',
-      'peach': 'Pêche',
-      'pear': 'Poire',
-      
-      // Légumes
-      'tomato': 'Tomate',
-      'carrot': 'Carotte',
-      'lettuce': 'Salade',
-      'cucumber': 'Concombre',
-      'broccoli': 'Brocoli',
-      'potato': 'Pomme de terre',
-      'onion': 'Oignon',
-      'pepper': 'Poivron',
-      'garlic': 'Ail',
-      
-      // Produits laitiers
-      'milk': 'Lait',
-      'cheese': 'Fromage',
-      'yogurt': 'Yaourt',
-      'butter': 'Beurre',
-      'cream': 'Crème',
-      
-      // Viandes
-      'chicken': 'Poulet',
-      'beef': 'Bœuf',
-      'pork': 'Porc',
-      'fish': 'Poisson',
-      'meat': 'Viande',
-      
-      // Autres
-      'egg': 'Œuf',
-      'bread': 'Pain',
-      'pasta': 'Pâtes',
-      'rice': 'Riz',
-      'cereal': 'Céréales',
-      'juice': 'Jus',
-      'water': 'Eau',
-      'soda': 'Soda',
-      
-      // Catégories générales
-      'food': 'Aliment',
-      'fruit': 'Fruit',
-      'vegetable': 'Légume',
-      'dairy': 'Produit laitier',
-      'beverage': 'Boisson',
-    };
-
-    const lower = englishName.toLowerCase();
-    return translations[lower] || this.capitalizeFirst(englishName);
-  }
-
-  capitalizeFirst(str) {
-    return str.charAt(0).toUpperCase() + str.slice(1);
-  }
-
-  // Fonction principale d'analyse
-  async analyzeImage(imageUri) {
+  // Méthode alternative qui accepte des résultats déjà détectés
+  async analyzeFullFridge(input) {
     try {
-      if (this.useGoogleVision) {
-        return await this.analyzeWithGoogleVision(imageUri);
-      } else {
-        return await this.analyzeWithClarifai(imageUri);
-      }
-    } catch (error) {
-      console.error('Erreur analyse image:', error);
+      let detected;
       
-      // Fallback : retourner des résultats simulés
-      console.log('Utilisation du mode simulation (API non configurée)');
-      return this.simulateDetection();
+      // Si input est une URI d'image
+      if (typeof input === 'string' || input.uri) {
+        const imageUri = typeof input === 'string' ? input : input.uri;
+        detected = await this.analyzeImage(imageUri);
+      }
+      // Si input contient déjà des items détectés (mode test)
+      else if (input.detectedItems) {
+        detected = input.detectedItems;
+      }
+      // Si input est un tableau direct
+      else if (Array.isArray(input)) {
+        detected = input;
+      }
+      else {
+        throw new Error('Format d\'entrée non reconnu');
+      }
+      
+      if (!detected || detected.length === 0) {
+        return [];
+      }
+      
+      // Grouper par catégorie automatiquement
+      const categorized = this.categorizeItems(detected);
+      
+      // Suggérer zones de stockage
+      const withZones = this.suggestStorageZones(categorized);
+      
+      // Estimer dates de péremption
+      const withExpiry = this.estimateExpiryDates(withZones);
+      
+      return withExpiry;
+    } catch (error) {
+      console.error('Erreur analyse frigo complète:', error);
+      throw error;
     }
   }
 
-  // Simulation pour développement/démo
-  simulateDetection() {
-    const foods = [
-      'Yaourt', 'Lait', 'Fromage', 'Tomates', 'Carottes',
-      'Pommes', 'Bananes', 'Pain', 'Œufs', 'Poulet'
-    ];
+  // Catégoriser automatiquement
+  categorizeItems(items) {
+    return items.map(item => ({
+      ...item,
+      category: this.detectCategory(item.name)
+    }));
+  }
 
-    const count = Math.floor(Math.random() * 5) + 3; // 3-7 items
-    const detected = [];
+  detectCategory(itemName) {
+    const lower = itemName.toLowerCase();
+    
+    const categories = {
+      'produits laitiers': ['lait', 'yaourt', 'fromage', 'beurre', 'crème', 'dairy', 'milk', 'cheese', 'yogurt', 'butter'],
+      'viandes': ['viande', 'poulet', 'bœuf', 'porc', 'jambon', 'meat', 'chicken', 'beef', 'pork', 'ham'],
+      'poissons': ['poisson', 'saumon', 'thon', 'crevette', 'fish', 'salmon', 'tuna', 'shrimp'],
+      'fruits': ['pomme', 'banane', 'orange', 'fraise', 'raisin', 'fruit', 'apple', 'banana', 'orange', 'strawberry', 'grape'],
+      'légumes': ['tomate', 'carotte', 'salade', 'concombre', 'poivron', 'vegetable', 'tomato', 'carrot', 'lettuce', 'cucumber', 'pepper'],
+      'boissons': ['jus', 'eau', 'lait', 'soda', 'beverage', 'juice', 'water', 'drink'],
+      'condiments': ['sauce', 'moutarde', 'ketchup', 'mayonnaise', 'condiment', 'mustard']
+    };
+    
+    for (const [category, keywords] of Object.entries(categories)) {
+      if (keywords.some(keyword => lower.includes(keyword))) {
+        return category;
+      }
+    }
+    
+    return 'autre';
+  }
 
-    for (let i = 0; i < count; i++) {
-      const randomFood = foods[Math.floor(Math.random() * foods.length)];
-      const randomConfidence = 0.7 + Math.random() * 0.25; // 0.7-0.95
-      const randomQuantity = Math.floor(Math.random() * 6) + 1; // 1-6
+  // Suggérer zone de stockage optimale
+  suggestStorageZones(items) {
+    return items.map(item => {
+      let suggestedZone = 'Frigo principal';
+      
+      switch (item.category) {
+        case 'produits laitiers':
+          suggestedZone = 'Étagère haute';
+          break;
+        case 'viandes':
+        case 'poissons':
+          suggestedZone = 'Étagère basse (zone froide)';
+          break;
+        case 'fruits':
+        case 'légumes':
+          suggestedZone = 'Bac à légumes';
+          break;
+        case 'condiments':
+          suggestedZone = 'Porte du frigo';
+          break;
+      }
+      
+      return { ...item, zone: suggestedZone };
+    });
+  }
 
-      detected.push({
-        name: randomFood,
-        confidence: randomConfidence,
-        quantity: randomQuantity,
-        source: 'simulation',
+  // Estimer dates de péremption par défaut
+  estimateExpiryDates(items) {
+    const expiryRules = {
+      'produits laitiers': 7,  // 7 jours
+      'viandes': 3,            // 3 jours
+      'poissons': 2,           // 2 jours
+      'fruits': 7,
+      'légumes': 10,
+      'condiments': 30,
+      'autre': 5
+    };
+    
+    return items.map(item => {
+      const daysToAdd = expiryRules[item.category] || 5;
+      const expiryDate = new Date();
+      expiryDate.setDate(expiryDate.getDate() + daysToAdd);
+      
+      return {
+        ...item,
+        suggestedExpiryDate: expiryDate.toISOString().split('T')[0],
+        expiryConfidence: 0.7,
+        quantity: 1
+      };
+    });
+  }
+
+  // Historique des détections
+  async saveDetectionHistory(userId, detected) {
+    try {
+      const history = await AsyncStorage.getItem(`detection_history_${userId}`);
+      const parsedHistory = history ? JSON.parse(history) : [];
+      
+      parsedHistory.push({
+        date: new Date().toISOString(),
+        items: detected,
+        count: detected.length
       });
+      
+      // Garder seulement les 20 dernières détections
+      const recentHistory = parsedHistory.slice(-20);
+      
+      await AsyncStorage.setItem(
+        `detection_history_${userId}`,
+        JSON.stringify(recentHistory)
+      );
+    } catch (error) {
+      console.error('Erreur sauvegarde historique:', error);
     }
-
-    return detected;
   }
 
-  // Vérifier si les API keys sont configurées
-  isConfigured() {
-    if (this.useGoogleVision) {
-      return GOOGLE_VISION_API_KEY !== 'AIzaSyDLSO-InziWAzffyj9K8Sgj2Gb1S0JBsLE';
-    } else {
-      return CLARIFAI_API_KEY !== 'NULL';
+  // Obtenir l'historique
+  async getDetectionHistory(userId) {
+    try {
+      const history = await AsyncStorage.getItem(`detection_history_${userId}`);
+      return history ? JSON.parse(history) : [];
+    } catch (error) {
+      console.error('Erreur récupération historique:', error);
+      return [];
     }
   }
 }
