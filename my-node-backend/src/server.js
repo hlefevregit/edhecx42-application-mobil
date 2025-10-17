@@ -14,8 +14,8 @@ const PORT = process.env.PORT || 3000;
 // 🔐 CORS (prod + local)
 const allowedOrigins = [
   // --- PROD (remplace par tes vraies URLs de front) ---
-  'https://<ton-user>.github.io',                 // Pages user site
-  'https://<ton-user>.github.io/<ton-repo>',      // Pages projet
+  'https://hlefevregit.github.io',                 // Pages user site
+  'https://hlefevregit.github.io/edhecx42-application-mobil',      // Pages projet
   // 'https://ton-projet.vercel.app',             // (si tu utilises Vercel)
 
   // --- DEV local ---
