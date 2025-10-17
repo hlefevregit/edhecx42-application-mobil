@@ -7,6 +7,7 @@ import KnorrShopScreen from '../screens/knorr/KnorrShopScreen';
 import CreateKnorrPostScreen from '../screens/knorr/CreateKnorrPostScreen';
 import KnorrProfileScreen from '../screens/knorr/KnorrProfileScreen';
 import KnorrChallengesScreen from '../screens/knorr/KnorrChallengesScreen';
+import KnorrPostDetailScreen from '../screens/knorr/KnorrPostDetailScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -56,6 +57,15 @@ const KnorrNavigator = () => {
         component={KnorrProfileScreen}
         options={{
           title: '👤 Profil Knorr',
+        }}
+      />
+      
+      <Stack.Screen 
+        name="KnorrPostDetail" 
+        component={KnorrPostDetailScreen}
+        options={{
+          title: '📄 Détail du Post',
+          headerShown: false, // Le screen gère son propre header
         }}
       />
       

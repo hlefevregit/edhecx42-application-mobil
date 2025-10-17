@@ -4,186 +4,181 @@ const API_URL = Constants.expoConfig?.extra?.apiUrl || 'http://localhost:3000/ap
 
 class ApiService {
   async handleResponse(response) {
-    const contentType = response.headers.get('content-type');
-    
-    if (!contentType || !contentType.includes('application/json')) {
-      const text = await response.text();
-      console.error('Non-JSON response:', text);
-      throw new Error('Server returned non-JSON response');
-    }
-    
-    const data = await response.json();
-    
+    const ct = response.headers.get('content-type');
+    const text = await response.text();
+    const data = ct?.includes('application/json') ? JSON.parse(text) : { raw: text };
     if (!response.ok) {
-      throw new Error(data.error || 'Request failed');
+      throw new Error(data?.error || 'Request failed');
     }
-    
     return data;
   }
 
-  // Authentification
+  // Auth
   async register(userData) {
-    try {
-      const response = await fetch(`${API_URL}/users/register`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(userData),
-      });
-      
-      return await this.handleResponse(response);
-    } catch (error) {
-      console.error('Register error:', error);
-      throw error;
-    }
+    const r = await fetch(`${API_URL}/users/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(userData),
+    });
+    return this.handleResponse(r);
   }
 
   async login(email, password) {
-    try {
-      const response = await fetch(`${API_URL}/users/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      });
-      
-      return await this.handleResponse(response);
-    } catch (error) {
-      console.error('Login error:', error);
-      throw error;
-    }
+    const r = await fetch(`${API_URL}/users/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    return this.handleResponse(r);
   }
 
-  // Profil utilisateur
+  // User
   async getUserProfile(userId, token) {
-    try {
-      const response = await fetch(`${API_URL}/users/${userId}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      return await this.handleResponse(response);
-    } catch (error) {
-      console.error('Get profile error:', error);
-      throw error;
-    }
+    const r = await fetch(`${API_URL}/users/${userId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return this.handleResponse(r);
   }
 
   async updateUserProfile(userId, userData, token) {
-    try {
-      const response = await fetch(`${API_URL}/users/${userId}`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(userData),
-      });
-      
-      return await this.handleResponse(response);
-    } catch (error) {
-      console.error('Update profile error:', error);
-      throw error;
-    }
+    const r = await fetch(`${API_URL}/users/${userId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(userData),
+    });
+    return this.handleResponse(r);
   }
 
-  // Frigo
+  // Fridge
   async getFridgeItems(userId, token) {
-    try {
-      console.log(`Fetching fridge items from: ${API_URL}/fridge/${userId}`);
-      
-      const response = await fetch(`${API_URL}/fridge/${userId}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      return await this.handleResponse(response);
-    } catch (error) {
-      console.error('Get fridge items error:', error);
-      throw error;
-    }
+    const r = await fetch(`${API_URL}/fridge/${userId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return this.handleResponse(r);
   }
 
   async addFridgeItems(userId, items, token) {
-    try {
-      console.log(`Adding fridge items to: ${API_URL}/fridge/${userId}`);
-      
-      const response = await fetch(`${API_URL}/fridge/${userId}`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ items }),
-      });
-      
-      return await this.handleResponse(response);
-    } catch (error) {
-      console.error('Add fridge items error:', error);
-      throw error;
-    }
+    const r = await fetch(`${API_URL}/fridge/${userId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ items }),
+    });
+    return this.handleResponse(r);
   }
 
-  async updateFridgeItem(itemId, updates, token) {
-    try {
-      const response = await fetch(`${API_URL}/fridge/${itemId}`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updates),
-      });
-      
-      return await this.handleResponse(response);
-    } catch (error) {
-      console.error('Update fridge item error:', error);
-      throw error;
+  // Posts
+  async createPost({ userId, content, imageUri }) {
+    const form = new FormData();
+    form.append('userId', userId);
+    if (content) form.append('content', content);
+
+    if (imageUri) {
+      if (typeof window !== 'undefined') {
+        const resp = await fetch(imageUri);
+        const blob = await resp.blob();
+        form.append('image', blob, 'photo.jpg');
+      } else {
+        form.append('image', { uri: imageUri, name: 'photo.jpg', type: 'image/jpeg' });
+      }
     }
+
+    const r = await fetch(`${API_URL}/posts`, { method: 'POST', body: form });
+    return this.handleResponse(r);
   }
 
-  async deleteFridgeItem(itemId, token) {
-    try {
-      const response = await fetch(`${API_URL}/fridge/${itemId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      return await this.handleResponse(response);
-    } catch (error) {
-      console.error('Delete fridge item error:', error);
-      throw error;
-    }
+  async getPosts(userId = null) {
+    const url = userId ? `${API_URL}/posts?userId=${userId}` : `${API_URL}/posts`;
+    const r = await fetch(url);
+    return this.handleResponse(r);
   }
 
-  // Shopping List
-  async getShoppingList(userId, token) {
-    try {
-      const response = await fetch(`${API_URL}/shopping/${userId}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      return await this.handleResponse(response);
-    } catch (error) {
-      console.error('Get shopping list error:', error);
-      throw error;
-    }
+  async getPost(postId) {
+    const r = await fetch(`${API_URL}/posts/${postId}`);
+    return this.handleResponse(r);
+  }
+
+  async getComments(postId) {
+    const r = await fetch(`${API_URL}/posts/${postId}/comments`);
+    return this.handleResponse(r);
+  }
+
+  async addComment(postId, userId, content) {
+    const r = await fetch(`${API_URL}/posts/${postId}/comments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, content })
+    });
+    return this.handleResponse(r);
+  }
+
+  async deleteComment(commentId) {
+    const r = await fetch(`${API_URL}/comments/${commentId}`, {
+      method: 'DELETE'
+    });
+    return this.handleResponse(r);
+  }
+
+  async sharePost(postId, userId) {
+    const r = await fetch(`${API_URL}/posts/${postId}/share`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId })
+    });
+    return this.handleResponse(r);
+  }
+
+  async getKnorrProfile(userId) {
+    const r = await fetch(`${API_URL}/knorr-profiles/${userId}`);
+    return this.handleResponse(r);
+  }
+
+  async likePost(postId, userId) {
+    const r = await fetch(`${API_URL}/posts/${postId}/like`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId }),
+    });
+    return this.handleResponse(r);
+  }
+
+  async followUser(targetUserId, currentUserId) {
+    const r = await fetch(`${API_URL}/knorr-profiles/follow`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ targetUserId, currentUserId }),
+    });
+    return this.handleResponse(r);
+  }
+
+  async unfollowUser(targetUserId, currentUserId) {
+    const r = await fetch(`${API_URL}/knorr-profiles/unfollow`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ targetUserId, currentUserId }),
+    });
+    return this.handleResponse(r);
+  }
+
+  async incrementViews(postId) {
+    const r = await fetch(`${API_URL}/posts/${postId}/view`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    return this.handleResponse(r);
   }
 }
 
 export default new ApiService();
+
+// Exemple dans votre écran de création de post
+import api from '../services/apiService';
+
+const onPublish = async () => {
+  try {
+    await api.createPost({ userId, content, imageUri });
+    // navigation.goBack();
+  } catch (e) {
+    console.log('Publish error:', e);
+  }
+};
+// <Button onPress={onPublish} title="Publier" />
