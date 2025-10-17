@@ -1,62 +1,67 @@
+// server.js
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
+
 const userRoutes = require('./routes/userRoutes');
 const fridgeRoutes = require('./routes/fridgeRoutes');
-const path = require('path');
 const postsRoutes = require('./routes/postsRoutes');
 const knorrProfileRoutes = require('./routes/knorrProfileRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Activer CORS
+// 🔐 CORS (prod + local)
+const allowedOrigins = [
+  // --- PROD (remplace par tes vraies URLs de front) ---
+  'https://<ton-user>.github.io',                 // Pages user site
+  'https://<ton-user>.github.io/<ton-repo>',      // Pages projet
+  // 'https://ton-projet.vercel.app',             // (si tu utilises Vercel)
+
+  // --- DEV local ---
+  'http://localhost:8000',
+  'http://127.0.0.1:8000',
+  'http://localhost:8081',
+  'http://localhost:19006',
+];
+
+// CORS avant les routes
 app.use(cors({
-  origin: ['http://localhost:8081', 'http://localhost:19006', 'http://localhost:8000'],
-  credentials: true
+  origin(origin, cb) {
+    // autorise requêtes sans Origin (curl/healthchecks) et origins listées
+    if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
+    return cb(new Error('Not allowed by CORS'));
+  },
+  methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
+  allowedHeaders: ['Content-Type','Authorization'],
+  credentials: true, // si tu utilises des cookies/session
 }));
 
+// Préflight global
+app.options('*', cors());
+
+// Body parsers
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// Route de test
-app.get('/api/test', (req, res) => {
-  res.json({ message: 'API is working!' });
-});
+// ✅ Route de santé simple
+app.get('/api/health', (req, res) => res.json({ ok: true }));
 
+// Tes routes API
 app.use('/api/users', userRoutes);
 app.use('/api/fridge', fridgeRoutes);
 app.use('/api/posts', postsRoutes);
 app.use('/api/knorr-profiles', knorrProfileRoutes);
 
-// Servir les fichiers uploadés (dev)
+// Fichiers uploadés (si besoin)
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
-// Gestion des routes non trouvées
+// 404 API
 app.use((req, res) => {
   res.status(404).json({ error: 'Route not found', path: req.path });
 });
 
+// Launch
 app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
-
-// A adapter où tu publies un post (ex: PostCreateScreen)
-const publishPost = async ({ userId, content, imageUri }) => {
-  const form = new FormData();
-  form.append('userId', userId);
-  if (content) form.append('content', content);
-  if (imageUri) {
-    // Expo: il faut fournir name et type
-    form.append('image', {
-      uri: imageUri,
-      name: 'photo.jpg',
-      type: 'image/jpeg'
-    });
-  }
-
-  const res = await fetch('http://localhost:3000/api/posts', {
-    method: 'POST',
-    body: form
-  });
-  const data = await res.json();
-  return data;
-};
