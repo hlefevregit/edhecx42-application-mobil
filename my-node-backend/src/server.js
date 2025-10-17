@@ -11,7 +11,7 @@ const PORT = process.env.PORT || 3000;
 
 // Activer CORS
 app.use(cors({
-  origin: ['http://localhost:8081', 'http://localhost:19006'],
+  origin: ['http://localhost:8081', 'http://localhost:19006', 'http://localhost:8000'],
   credentials: true
 }));
 
