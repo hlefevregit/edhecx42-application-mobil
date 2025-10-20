@@ -54,7 +54,7 @@ app.use('/api/posts', postsRoutes);
 app.use('/api/knorr-profiles', knorrProfileRoutes);
 
 // Fichiers uploadés (si besoin)
-app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
+app.use('/uploads', require('express').static(path.join(__dirname, '..', 'uploads')));
 
 // 404 API
 app.use((req, res) => {

@@ -1,6 +1,7 @@
 import Constants from 'expo-constants';
 
-export const API_URL = "https://edhecx42-application-mobil.onrender.com";
+// export const API_URL = "https://edhecx42-application-mobil.onrender.com";
+export const API_URL = "http://localhost:3000/api";
 class ApiService {
   async handleResponse(response) {
     const ct = response.headers.get('content-type');
@@ -111,7 +112,7 @@ class ApiService {
   }
 
   async deleteComment(commentId) {
-    const r = await fetch(`${API_URL}/comments/${commentId}`, {
+    const r = await fetch(`${API_URL}/posts/comments/${commentId}`, { // corrigé
       method: 'DELETE'
     });
     return this.handleResponse(r);
@@ -168,16 +169,3 @@ class ApiService {
 }
 
 export default new ApiService();
-
-// Exemple dans votre écran de création de post
-import api from '../services/apiService';
-
-const onPublish = async () => {
-  try {
-    await api.createPost({ userId, content, imageUri });
-    // navigation.goBack();
-  } catch (e) {
-    console.log('Publish error:', e);
-  }
-};
-// <Button onPress={onPublish} title="Publier" />

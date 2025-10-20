@@ -223,7 +223,7 @@ const KnorrProfileScreen = ({ route, navigation }) => {
           <View style={styles.actionButtons}>
             <TouchableOpacity
               style={styles.editButton}
-              onPress={() => navigation.navigate('EditProfile')}
+              onPress={() => navigation.navigate('EditProfile', { userId: profileUserId })} // <- passe l'ID
             >
               <Ionicons name="create" size={20} color="#666" />
               <Text style={styles.editButtonText}>Modifier le profil</Text>

@@ -8,10 +8,13 @@ generator client {
 }
 
 model User {
-  id                String   @id @default(cuid())
-  email             String   @unique
-  password          String?
-  displayName       String?
+  id           String   @id
+  email        String   @unique
+  password     String?
+  displayName  String?
+  avatarUrl    String?   // NEW
+  country      String?   // NEW
+  dob          DateTime? // NEW
   allergies         String?
   preferences       String?
   dietStyle         String?
@@ -26,6 +29,7 @@ model User {
   stats             Stat[]
   rewards           KnorrReward[]
   challenges        UserChallenge[]
+  
 }
 
 model KnorrPost {
