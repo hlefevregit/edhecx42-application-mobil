@@ -3,6 +3,8 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
 import GoogleAuthTest from '../screens/GoogleAuthTestSimple';
+import EmailLoginScreen from '../screens/EmailLoginScreen';
+import EmailSignupScreen from '../screens/EmailSignupScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -22,12 +24,15 @@ const AuthNavigator = () => {
         }}
       />
       <Stack.Screen 
-        name="Register" 
-        component={RegisterScreen}
+        name="EmailSignup" 
+        component={EmailSignupScreen}
         options={{
           title: 'Inscription'
         }}
       />
+      <Stack.Screen name="Register" component={RegisterScreen} />
+      
+      <Stack.Screen name="EmailLogin" component={EmailLoginScreen} />
       
       {/* 🧪 Test Google Auth - Accessible avant connexion */}
       <Stack.Screen 

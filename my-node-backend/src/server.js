@@ -7,6 +7,7 @@ const userRoutes = require('./routes/userRoutes');
 const fridgeRoutes = require('./routes/fridgeRoutes');
 const postsRoutes = require('./routes/postsRoutes');
 const knorrProfileRoutes = require('./routes/knorrProfileRoutes');
+const authRoutes = require('./routes/authRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -52,6 +53,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/fridge', fridgeRoutes);
 app.use('/api/posts', postsRoutes);
 app.use('/api/knorr-profiles', knorrProfileRoutes);
+app.use('/api/auth', authRoutes);
 
 // Fichiers uploadés (si besoin)
 app.use('/uploads', require('express').static(path.join(__dirname, '..', 'uploads')));

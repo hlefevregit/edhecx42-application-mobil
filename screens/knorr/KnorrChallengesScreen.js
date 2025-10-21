@@ -16,15 +16,17 @@ import {
   increment,
   arrayUnion
 } from 'firebase/firestore';
-import { auth, db } from '../../firebaseConfig';
+import { db } from '../../firebaseConfig'; // garde si tu utilises encore Firestore ici
+import { useAuth } from '../../contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 
-const KnorrChallengesScreen = ({ navigation }) => {
+export default function KnorrChallengesScreen({ navigation }) {
+  const { user } = useAuth();
+  const userId = user?.id;
+
   const [userChallenges, setUserChallenges] = useState([]);
   const [loading, setLoading] = useState(true);
   const [knorrProfile, setKnorrProfile] = useState(null);
-
-  const userId = auth.currentUser?.uid;
 
   // Définition des défis (à stocker en BDD en prod)
   const ALL_CHALLENGES = [
@@ -616,5 +618,3 @@ const styles = StyleSheet.create({
     textTransform: 'capitalize',
   },
 });
-
-export default KnorrChallengesScreen;

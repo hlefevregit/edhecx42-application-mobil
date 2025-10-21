@@ -1,70 +1,104 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 
-const FridgeFilters = ({ selectedFilter, onFilterChange, counts }) => {
+const KNORR_COLORS = {
+  primary: '#006e3e',
+  accent: '#F2A900',
+  white: '#FFFFFF',
+  textLight: '#6b8270',
+};
+
+export default function FridgeFilters({ selectedFilter, onFilterChange, counts }) {
   const filters = [
-    { id: 'all', label: `Tout (${counts.all})`, bgColor: null },
-    { id: 'expired', label: `🗑️ Périmés (${counts.expired})`, bgColor: counts.expired > 0 ? '#ffe5e5' : null },
-    { id: 'urgent', label: `⚠️ Urgent (${counts.urgent})`, bgColor: counts.urgent > 0 ? '#ffe8d5' : null },
-    { id: 'soon', label: `⏰ Bientôt (${counts.soon})`, bgColor: counts.soon > 0 ? '#fff3cd' : null },
-    { id: 'fresh', label: `✅ Frais (${counts.fresh})`, bgColor: null },
+    { key: 'all', label: 'Tous', count: counts.total, color: KNORR_COLORS.primary },
+    { key: 'fresh', label: 'Frais', count: counts.fresh, color: '#4CAF50' },
+    { key: 'expiringSoon', label: 'À consommer', count: counts.expiringSoon, color: '#FF9800' },
+    { key: 'expired', label: 'Périmés', count: counts.expired, color: '#F44336' },
   ];
 
   return (
-    <ScrollView 
-      horizontal 
-      showsHorizontalScrollIndicator={false}
-      style={styles.container}
-    >
-      {filters.map(filter => (
+    <View style={styles.container}>
+      {filters.map((filter) => (
         <TouchableOpacity
-          key={filter.id}
+          key={filter.key}
           style={[
-            styles.button,
-            selectedFilter === filter.id && styles.buttonActive,
-            filter.bgColor && { backgroundColor: filter.bgColor }
+            styles.filterButton,
+            selectedFilter === filter.key && { 
+              backgroundColor: filter.color + '20',
+              borderColor: filter.color,
+            },
           ]}
-          onPress={() => onFilterChange(filter.id)}
+          onPress={() => onFilterChange(filter.key)}
         >
-          <Text style={[
-            styles.buttonText,
-            selectedFilter === filter.id && styles.buttonTextActive
-          ]}>
+          <Text
+            style={[
+              styles.filterText,
+              selectedFilter === filter.key && { 
+                color: filter.color,
+                fontWeight: '700',
+              },
+            ]}
+          >
             {filter.label}
           </Text>
+          <View
+            style={[
+              styles.badge,
+              selectedFilter === filter.key && { backgroundColor: filter.color },
+            ]}
+          >
+            <Text
+              style={[
+                styles.badgeText,
+                selectedFilter === filter.key && { color: '#FFF' },
+              ]}
+            >
+              {filter.count}
+            </Text>
+          </View>
         </TouchableOpacity>
       ))}
-    </ScrollView>
+    </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
-    maxHeight: 50,
-    marginHorizontal: 15,
-    marginBottom: 10,
+    flexDirection: 'row',
+    padding: 15,
+    gap: 8,
+    backgroundColor: '#f8faf8',
   },
-  button: {
-    paddingVertical: 8,
-    paddingHorizontal: 15,
-    borderRadius: 20,
-    backgroundColor: '#f0f0f0',
-    marginRight: 10,
+  filterButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    backgroundColor: '#FFF',
     borderWidth: 2,
-    borderColor: 'transparent',
+    borderColor: '#E8EDE9',
+    gap: 6,
   },
-  buttonActive: {
-    backgroundColor: '#3498db',
-    borderColor: '#2980b9',
-  },
-  buttonText: {
+  filterText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#666',
+    color: '#6b8270',
   },
-  buttonTextActive: {
-    color: '#fff',
+  badge: {
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#E8EDE9',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+  },
+  badgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#6b8270',
   },
 });
-
-export default FridgeFilters;

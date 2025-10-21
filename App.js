@@ -1,40 +1,37 @@
-import React, { useState, useEffect } from 'react';
-import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from './firebaseConfig';
+import React, { useEffect } from 'react';
+import { NavigationContainer } from '@react-navigation/native';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import AppNavigator from './navigation/AppNavigator';
-import { navigationRef } from './navigation/navigationService';
 import notificationService from './services/notificationService';
 
 /**
  * 🍽️ FOOD APP - Point d'entrée principal
- * Navigation organisée et Google Auth intégré
+ * Navigation organisée avec Auth local (plus de Firebase)
  */
 
-export default function App() {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+function AppContent() {
+  const { user } = useAuth();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-      setLoading(false);
-      
-      // 🔔 Initialiser notifications si user connecté
-      if (currentUser) {
-        notificationService.initialize(currentUser.uid);
-      } else {
-        notificationService.cleanup();
-      }
-    });
+    // 🔔 Initialiser notifications si user connecté
+    if (user) {
+      notificationService.initialize(user.id);
+    } else {
+      notificationService.cleanup();
+    }
+  }, [user]);
 
-    return () => unsubscribe();
-  }, []);
+  return <AppNavigator />;
+}
 
-  // 🔄 Chargement
-  if (loading) {
-    return null; // Ou un écran de splash
-  }
-
-  // 🗺️ Navigation principale avec ref globale
-  return <AppNavigator user={user} ref={navigationRef} />;
+export default function App() {
+  console.log('=== App.js rendering ===');
+  
+  return (
+    <NavigationContainer>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </NavigationContainer>
+  );
 }

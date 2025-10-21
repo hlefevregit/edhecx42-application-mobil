@@ -15,9 +15,13 @@ import { Video } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import apiService from '../../services/apiService';
-import { auth } from '../../firebaseConfig'; // Juste pour récupérer l'userId actuel
+import { useAuth } from '../../contexts/AuthContext';
 
 const CreateKnorrPostScreen = ({ navigation }) => {
+  const { user } = useAuth();
+  const userId = user?.id;
+  const userName = user?.displayName || user?.name || 'Utilisateur';
+
   const [mediaUri, setMediaUri] = useState(null);
   const [mediaType, setMediaType] = useState(null);
   const [caption, setCaption] = useState('');
@@ -32,9 +36,6 @@ const CreateKnorrPostScreen = ({ navigation }) => {
     difficulty: 'facile'
   });
   const [uploading, setUploading] = useState(false);
-
-  const userId = auth.currentUser?.uid;
-  const userName = auth.currentUser?.displayName || 'Utilisateur';
 
   const KNORR_PRODUCTS = [
     { id: 'knorr_1', name: 'Knorr Bouillon de Légumes', category: 'bouillon', image: 'https://picsum.photos/100' },
@@ -178,7 +179,7 @@ const CreateKnorrPostScreen = ({ navigation }) => {
   if (uploading) {
     return (
       <View style={styles.uploadingContainer}>
-        <ActivityIndicator size="large" color="#e63946" />
+        <ActivityIndicator size="large" color="#006e3e" />
         <Text style={styles.uploadingText}>Publication en cours...</Text>
         <Text style={styles.uploadingSubtext}>Ne fermez pas l'app</Text>
       </View>
@@ -188,7 +189,7 @@ const CreateKnorrPostScreen = ({ navigation }) => {
   return (
     <ScrollView style={styles.container}>
       <LinearGradient
-        colors={['#e63946', '#c1121f']}
+        colors={['#006e3e', '#27503e']}
         style={styles.header}
       >
         <TouchableOpacity onPress={() => navigation.goBack()}>
@@ -223,17 +224,17 @@ const CreateKnorrPostScreen = ({ navigation }) => {
               setMediaType(null);
             }}
           >
-            <Ionicons name="close-circle" size={32} color="#e63946" />
+            <Ionicons name="close-circle" size={32} color="#006e3e" />
           </TouchableOpacity>
         </View>
       ) : (
         <View style={styles.mediaSelector}>
           <TouchableOpacity style={styles.mediaSelectorButton} onPress={takeMedia}>
-            <Ionicons name="camera" size={48} color="#e63946" />
+            <Ionicons name="camera" size={48} color="#006e3e" />
             <Text style={styles.mediaSelectorText}>Prendre photo</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.mediaSelectorButton} onPress={pickMedia}>
-            <Ionicons name="images" size={48} color="#e63946" />
+            <Ionicons name="images" size={48} color="#006e3e" />
             <Text style={styles.mediaSelectorText}>Galerie</Text>
           </TouchableOpacity>
         </View>
@@ -274,7 +275,7 @@ const CreateKnorrPostScreen = ({ navigation }) => {
           style={styles.addProductButton}
           onPress={() => setShowProductPicker(!showProductPicker)}
         >
-          <Ionicons name="add-circle" size={24} color="#e63946" />
+          <Ionicons name="add-circle" size={24} color="#006e3e" />
           <Text style={styles.addProductText}>Ajouter des produits</Text>
         </TouchableOpacity>
 
@@ -429,7 +430,7 @@ const styles = StyleSheet.create({
   mediaPreviewContent: { width: '100%', height: '100%' },
   removeMediaButton: { position: 'absolute', top: 15, right: 15, backgroundColor: '#fff', borderRadius: 16 },
   mediaSelector: { flexDirection: 'row', padding: 20, gap: 15 },
-  mediaSelectorButton: { flex: 1, height: 150, backgroundColor: '#fff', borderRadius: 12, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#e63946', borderStyle: 'dashed' },
+  mediaSelectorButton: { flex: 1, height: 150, backgroundColor: '#fff', borderRadius: 12, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#006e3e', borderStyle: 'dashed' },
   mediaSelectorText: { marginTop: 10, fontSize: 14, fontWeight: '600', color: '#666', textAlign: 'center' },
   section: { backgroundColor: '#fff', padding: 20, marginBottom: 10 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
@@ -438,19 +439,19 @@ const styles = StyleSheet.create({
   captionInput: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12, fontSize: 16, minHeight: 100, textAlignVertical: 'top' },
   charCount: { textAlign: 'right', fontSize: 12, color: '#999', marginTop: 5 },
   input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12, fontSize: 16 },
-  addProductButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', borderWidth: 2, borderColor: '#e63946', borderRadius: 8, padding: 15, marginBottom: 15 },
-  addProductText: { marginLeft: 10, fontSize: 16, fontWeight: '600', color: '#e63946' },
+  addProductButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', borderWidth: 2, borderColor: '#006e3e', borderRadius: 8, padding: 15, marginBottom: 15 },
+  addProductText: { marginLeft: 10, fontSize: 16, fontWeight: '600', color: '#006e3e' },
   productPicker: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 15 },
   productItem: { width: '48%', backgroundColor: '#f9f9f9', borderRadius: 8, padding: 10, alignItems: 'center', borderWidth: 2, borderColor: 'transparent' },
   productItemSelected: { borderColor: '#2ecc71', backgroundColor: '#e8f8f5' },
   productImage: { width: 60, height: 60, borderRadius: 8, marginBottom: 8 },
   productName: { fontSize: 12, textAlign: 'center', color: '#333', marginBottom: 5 },
   selectedProducts: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  selectedProductTag: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#e63946', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 20 },
+  selectedProductTag: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#006e3e', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 20 },
   selectedProductText: { color: '#fff', fontSize: 13, fontWeight: '600', marginRight: 8 },
   contentTypeRow: { flexDirection: 'row', gap: 10 },
   contentTypeButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 15, borderRadius: 8, borderWidth: 2, borderColor: '#ddd', backgroundColor: '#fff' },
-  contentTypeButtonActive: { backgroundColor: '#e63946', borderColor: '#e63946' },
+  contentTypeButtonActive: { backgroundColor: '#006e3e', borderColor: '#006e3e' },
   contentTypeText: { marginLeft: 8, fontSize: 14, fontWeight: '600', color: '#666' },
   contentTypeTextActive: { color: '#fff' },
   recipeRow: { flexDirection: 'row', gap: 10, marginBottom: 15 },

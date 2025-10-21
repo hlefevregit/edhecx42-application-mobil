@@ -1,77 +1,24 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Ionicons } from '@expo/vector-icons';
 
-import HomeScreen from '../screens/HomeScreen';
-import StatsScreen from '../screens/StatsScreen';
-import KnorrNavigator from './KnorrNavigator';
+import HomeScreen from '../screens/HomeScreen';          // Widgets
+import KnorrFeedScreen from '../screens/knorr/KnorrFeedScreen'; // ← Social Feed
+import CreateKnorrPostScreen from '../screens/knorr/CreateKnorrPostScreen';
+import KnorrProfileStack from './KnorrProfileStack';
+import CustomTabBar from '../components/CustomTabBar';
 
 const Tab = createBottomTabNavigator();
 
-const TabNavigator = () => {
+export default function TabNavigator() {
   return (
     <Tab.Navigator
-      screenOptions={({ route }) => ({
-        tabBarIcon: ({ focused, color, size }) => {
-          let iconName;
-          
-          switch (route.name) {
-            case 'Home':
-              iconName = focused ? 'home' : 'home-outline';
-              break;
-            case 'Stats':
-              iconName = focused ? 'stats-chart' : 'stats-chart-outline';
-              break;
-            case 'Knorr':
-              iconName = focused ? 'restaurant' : 'restaurant-outline';
-              break;
-            default:
-              iconName = 'circle';
-          }
-          
-          return <Ionicons name={iconName} size={size} color={color} />;
-        },
-        tabBarActiveTintColor: '#e63946', // Rouge Knorr
-        tabBarInactiveTintColor: '#8e8e93',
-        headerShown: false,
-        tabBarStyle: {
-          backgroundColor: '#fff',
-          borderTopWidth: 1,
-          borderTopColor: '#f0f0f0',
-          paddingBottom: 5,
-          height: 60,
-        },
-        tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: '500',
-        },
-      })}
+      screenOptions={{ headerShown: false }}
+      tabBar={(props) => <CustomTabBar {...props} />}
     >
-      <Tab.Screen 
-        name="Home" 
-        component={HomeScreen}
-        options={{
-          tabBarLabel: 'Accueil',
-        }}
-      />
-      
-      <Tab.Screen 
-        name="Stats" 
-        component={StatsScreen}
-        options={{
-          tabBarLabel: 'Statistiques',
-        }}
-      />
-      
-      <Tab.Screen 
-        name="Knorr" 
-        component={KnorrNavigator}
-        options={{
-          tabBarLabel: 'Knorr Social',
-        }}
-      />
+      <Tab.Screen name="Widgets" component={HomeScreen} options={{ title: 'Widgets' }} />
+      <Tab.Screen name="Feed" component={KnorrFeedScreen} options={{ title: 'Social' }} />
+      <Tab.Screen name="Create" component={CreateKnorrPostScreen} options={{ title: 'Create' }} />
+      <Tab.Screen name="Profile" component={KnorrProfileStack} options={{ title: 'Account' }} />
     </Tab.Navigator>
   );
-};
-
-export default TabNavigator;
+}

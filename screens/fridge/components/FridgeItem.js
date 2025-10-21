@@ -1,170 +1,188 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { getItemStatus, getStatusColor, getStatusLabel, getCategoryIcon } from '../utils/fridgeHelpers';
+import { getExpiryStatus, getCategoryIcon } from '../utils/fridgeHelpers';
 
-const FridgeItem = ({ 
+const KNORR_COLORS = {
+  primary: '#006e3e',
+  accent: '#F2A900',
+  white: '#FFFFFF',
+  cardBg: '#FFFFFF',
+  shadow: '#006e3e20',
+};
+
+export default function FridgeItem({ 
   item, 
   onEdit, 
   onConsume, 
   onExpired, 
   onIncrease, 
   onDecrease 
-}) => {
-  const status = getItemStatus(item.expiryDate);
-  const statusColor = getStatusColor(status);
-  const statusLabel = getStatusLabel(status);
-  const isExpired = status === 'expired';
+}) {
+  const status = getExpiryStatus(item.expiryDate);
+  
+  const statusColors = {
+    fresh: '#4CAF50',
+    expiringSoon: '#FF9800',
+    expired: '#F44336',
+  };
+
+  const statusEmoji = {
+    fresh: '✅',
+    expiringSoon: '⚠️',
+    expired: '❌',
+  };
 
   return (
-    <View style={[styles.container, { borderLeftColor: statusColor }]}>
-      <TouchableOpacity style={styles.content} onPress={onEdit}>
-        <Text style={styles.icon}>{getCategoryIcon(item.name)}</Text>
+    <View style={[styles.card, { borderLeftColor: statusColors[status], borderLeftWidth: 4 }]}>
+      {/* Header avec icône et nom */}
+      <View style={styles.header}>
+        <View style={styles.iconContainer}>
+          <Ionicons 
+            name={getCategoryIcon(item.category)} 
+            size={28} 
+            color={KNORR_COLORS.primary} 
+          />
+        </View>
         <View style={styles.info}>
           <Text style={styles.name}>{item.name}</Text>
-          <Text style={styles.quantity}>Quantité: {item.quantity}</Text>
-          <Text style={[styles.status, { color: statusColor }]}>
-            {statusLabel}
-          </Text>
-          {item.expiryDate && (
-            <Text style={styles.expiry}>
-              Expire le {new Date(item.expiryDate).toLocaleDateString('fr-FR')}
-            </Text>
-          )}
-          {item.zone && (
-            <Text style={styles.zone}>📍 {item.zone}</Text>
-          )}
+          <Text style={styles.zone}>📍 {item.zone}</Text>
         </View>
-      </TouchableOpacity>
-      
+        <TouchableOpacity onPress={onEdit} style={styles.editBtn}>
+          <Ionicons name="pencil" size={18} color={KNORR_COLORS.accent} />
+        </TouchableOpacity>
+      </View>
+
+      {/* Quantité et expiration */}
+      <View style={styles.meta}>
+        <View style={styles.quantity}>
+          <TouchableOpacity onPress={onDecrease} style={styles.qtyBtn}>
+            <Ionicons name="remove-circle-outline" size={24} color={KNORR_COLORS.primary} />
+          </TouchableOpacity>
+          <Text style={styles.qtyText}>x{item.quantity}</Text>
+          <TouchableOpacity onPress={onIncrease} style={styles.qtyBtn}>
+            <Ionicons name="add-circle-outline" size={24} color={KNORR_COLORS.primary} />
+          </TouchableOpacity>
+        </View>
+
+        {item.expiryDate && (
+          <View style={[styles.expiryBadge, { backgroundColor: statusColors[status] + '20' }]}>
+            <Text style={[styles.expiryText, { color: statusColors[status] }]}>
+              {statusEmoji[status]} {new Date(item.expiryDate).toLocaleDateString('fr-FR')}
+            </Text>
+          </View>
+        )}
+      </View>
+
+      {/* Actions */}
       <View style={styles.actions}>
-        <TouchableOpacity style={styles.consumeButton} onPress={onConsume}>
-          <Ionicons name="checkmark-circle" size={20} color="#fff" />
+        <TouchableOpacity onPress={onConsume} style={styles.actionBtn}>
+          <Ionicons name="restaurant-outline" size={20} color={KNORR_COLORS.primary} />
           <Text style={styles.actionText}>Consommer</Text>
         </TouchableOpacity>
-
-        {isExpired && (
-          <TouchableOpacity style={styles.expiredButton} onPress={onExpired}>
-            <Ionicons name="trash" size={20} color="#fff" />
-            <Text style={styles.actionText}>Jeter</Text>
+        {status === 'expired' && (
+          <TouchableOpacity onPress={onExpired} style={[styles.actionBtn, styles.dangerBtn]}>
+            <Ionicons name="trash-outline" size={20} color="#F44336" />
+            <Text style={[styles.actionText, { color: '#F44336' }]}>Périmé</Text>
           </TouchableOpacity>
         )}
-
-        <View style={styles.quantityControls}>
-          <TouchableOpacity style={styles.quantityButton} onPress={onDecrease}>
-            <Ionicons name="remove" size={18} color="#fff" />
-          </TouchableOpacity>
-          
-          <Text style={styles.quantityText}>{item.quantity}</Text>
-          
-          <TouchableOpacity style={styles.quantityButton} onPress={onIncrease}>
-            <Ionicons name="add" size={18} color="#fff" />
-          </TouchableOpacity>
-        </View>
       </View>
     </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
-    padding: 15,
-    borderRadius: 12,
-    marginBottom: 10,
-    borderLeftWidth: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  content: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  icon: {
-    fontSize: 36,
-    marginRight: 12,
-  },
-  info: {
-    flex: 1,
-  },
-  name: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-  },
-  quantity: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 2,
-  },
-  status: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    marginTop: 4,
-  },
-  expiry: {
-    fontSize: 13,
-    marginTop: 4,
-    fontWeight: '600',
-  },
-  zone: {
-    fontSize: 11,
-    color: '#7f8c8d',
-    marginTop: 2,
-  },
-  actions: {
-    flexDirection: 'column',
-    alignItems: 'flex-end',
-    gap: 8,
-  },
-  consumeButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#2ecc71',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 15,
-    gap: 5,
-  },
-  expiredButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#e74c3c',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 15,
-    gap: 5,
-  },
-  actionText: {
-    color: '#fff',
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  quantityControls: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  quantityButton: {
-    backgroundColor: '#3498db',
-    width: 32,
-    height: 32,
+  card: {
+    backgroundColor: KNORR_COLORS.cardBg,
     borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: KNORR_COLORS.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  iconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: '#E8F5E9',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  quantityText: {
+  info: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  name: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#1a1a1a',
+  },
+  zone: {
+    fontSize: 13,
+    color: '#6b8270',
+    marginTop: 2,
+  },
+  editBtn: {
+    padding: 8,
+  },
+  meta: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  quantity: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  qtyBtn: {
+    padding: 4,
+  },
+  qtyText: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    minWidth: 30,
+    fontWeight: '700',
+    color: KNORR_COLORS.primary,
+    minWidth: 40,
     textAlign: 'center',
   },
+  expiryBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  expiryText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  actions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  actionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#E8F5E9',
+    paddingVertical: 10,
+    borderRadius: 10,
+    gap: 6,
+  },
+  dangerBtn: {
+    backgroundColor: '#FFEBEE',
+  },
+  actionText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: KNORR_COLORS.primary,
+  },
 });
-
-export default FridgeItem;

@@ -2,28 +2,29 @@ import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  ScrollView,
-  TouchableOpacity,
-  Image,
   StyleSheet,
   FlatList,
+  TouchableOpacity,
+  Image,
+  Platform,
+  ActivityIndicator,
   TextInput,
-  ActivityIndicator
 } from 'react-native';
-import { doc, getDoc } from 'firebase/firestore';
-import { auth, db } from '../firebaseConfig';
 import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '../contexts/AuthContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import recipeService from '../services/recipeService';
 
-const RecipesScreen = ({ navigation }) => {
+export default function RecipesScreen({ navigation }) {
+  const { user } = useAuth();
+  const userId = user?.id;
   const [recipes, setRecipes] = useState([]);
+  const [savedRecipes, setSavedRecipes] = useState([]);
   const [fridgeItems, setFridgeItems] = useState([]);
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState('recommended'); // recommended, all, trending
-  
-  const userId = auth.currentUser?.uid;
 
   useEffect(() => {
     loadData();
@@ -41,13 +42,12 @@ const RecipesScreen = ({ navigation }) => {
 
   const loadFridgeItems = async () => {
     if (!userId) return;
-    
+
     try {
-      const docRef = doc(db, 'fridge_items', userId);
-      const docSnap = await getDoc(docRef);
-      
-      if (docSnap.exists()) {
-        setFridgeItems(docSnap.data().items || []);
+      const saved = await AsyncStorage.getItem(`fridge_${userId}`);
+      if (saved) {
+        const data = JSON.parse(saved);
+        setFridgeItems(data.items || []);
       }
     } catch (error) {
       console.error('Erreur frigo:', error);
@@ -56,13 +56,11 @@ const RecipesScreen = ({ navigation }) => {
 
   const loadUserProfile = async () => {
     if (!userId) return;
-    
+
     try {
-      const docRef = doc(db, 'users', userId);
-      const docSnap = await getDoc(docRef);
-      
-      if (docSnap.exists()) {
-        setUserProfile(docSnap.data().profile);
+      const saved = await AsyncStorage.getItem(`userProfile_${userId}`);
+      if (saved) {
+        setUserProfile(JSON.parse(saved));
       }
     } catch (error) {
       console.error('Erreur profil:', error);
@@ -98,6 +96,22 @@ const RecipesScreen = ({ navigation }) => {
     }
   };
 
+  const toggleSaveRecipe = async (recipeId) => {
+    if (!userId) return;
+
+    try {
+      const isSaved = savedRecipes.includes(recipeId);
+      const newSaved = isSaved
+        ? savedRecipes.filter(id => id !== recipeId)
+        : [...savedRecipes, recipeId];
+
+      setSavedRecipes(newSaved);
+      await AsyncStorage.setItem(`savedRecipes_${userId}`, JSON.stringify(newSaved));
+    } catch (error) {
+      console.error('Error saving recipe:', error);
+    }
+  };
+
   const getMatchColor = (score) => {
     if (score >= 0.8) return '#2ecc71'; // Excellent
     if (score >= 0.6) return '#f39c12'; // Bon
@@ -112,52 +126,71 @@ const RecipesScreen = ({ navigation }) => {
     return 'Peu d\'ingrédients';
   };
 
-  const renderRecipe = ({ item }) => (
-    <TouchableOpacity
-      style={styles.recipeCard}
-      onPress={() => navigation.navigate('RecipeDetail', { recipe: item })}
-    >
-      <Image
-        source={{ uri: item.image }}
-        style={styles.recipeImage}
-      />
-      
-      <View style={styles.recipeInfo}>
-        <Text style={styles.recipeName} numberOfLines={2}>
-          {item.name}
-        </Text>
+  const renderRecipe = ({ item }) => {
+    const isSaved = savedRecipes.includes(item.id);
 
-        <View style={styles.recipeStats}>
-          <View style={styles.stat}>
-            <Ionicons name="time-outline" size={16} color="#666" />
-            <Text style={styles.statText}>{item.time || 30} min</Text>
+    return (
+      <TouchableOpacity
+        style={styles.recipeCard}
+        onPress={() => navigation.navigate('RecipeDetail', { recipe: item })}
+      >
+        <Image
+          source={{ uri: item.image }}
+          style={styles.recipeImage}
+        />
+
+        <View style={styles.recipeInfo}>
+          <Text style={styles.recipeName} numberOfLines={2}>
+            {item.name}
+          </Text>
+
+          <View style={styles.recipeStats}>
+            <View style={styles.stat}>
+              <Ionicons name="time-outline" size={16} color="#666" />
+              <Text style={styles.statText}>{item.time || 30} min</Text>
+            </View>
+
+            <View style={styles.stat}>
+              <Ionicons name="restaurant-outline" size={16} color="#666" />
+              <Text style={styles.statText}>
+                {item.usedIngredients}/{item.usedIngredients + item.missedIngredients}
+              </Text>
+            </View>
           </View>
 
-          <View style={styles.stat}>
-            <Ionicons name="restaurant-outline" size={16} color="#666" />
-            <Text style={styles.statText}>
-              {item.usedIngredients}/{item.usedIngredients + item.missedIngredients}
+          <View style={[
+            styles.matchBadge,
+            { backgroundColor: getMatchColor(item.matchScore) }
+          ]}>
+            <Text style={styles.matchText}>
+              {getMatchText(item.matchScore)}
             </Text>
           </View>
-        </View>
 
-        <View style={[
-          styles.matchBadge,
-          { backgroundColor: getMatchColor(item.matchScore) }
-        ]}>
-          <Text style={styles.matchText}>
-            {getMatchText(item.matchScore)}
-          </Text>
+          {item.missedIngredients > 0 && (
+            <Text style={styles.missingText}>
+              {item.missedIngredients} ingrédient{item.missedIngredients > 1 ? 's' : ''} manquant{item.missedIngredients > 1 ? 's' : ''}
+            </Text>
+          )}
         </View>
+        <TouchableOpacity
+          style={styles.saveButton}
+          onPress={() => toggleSaveRecipe(item.id)}
+        >
+          <Ionicons
+            name={isSaved ? 'bookmark' : 'bookmark-outline'}
+            size={24}
+            color={isSaved ? '#006e3e' : '#999'}
+          />
+        </TouchableOpacity>
+      </TouchableOpacity>
+    );
+  };
 
-        {item.missedIngredients > 0 && (
-          <Text style={styles.missingText}>
-            {item.missedIngredients} ingrédient{item.missedIngredients > 1 ? 's' : ''} manquant{item.missedIngredients > 1 ? 's' : ''}
-          </Text>
-        )}
-      </View>
-    </TouchableOpacity>
-  );
+  const handleBack = () => {
+    if (navigation.canGoBack()) navigation.goBack();
+    else navigation.getParent()?.navigate('Tabs', { screen: 'Widgets' });
+  };
 
   if (loading) {
     return (
@@ -170,13 +203,17 @@ const RecipesScreen = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color="#333" />
+        {/* ← Back to Widgets */}
+        <TouchableOpacity onPress={handleBack}>
+          <Ionicons name="arrow-back" size={24} color="#1a1a1a" />
         </TouchableOpacity>
+
         <Text style={styles.title}>Recettes</Text>
-        <View style={{ width: 24 }} />
+
+        <TouchableOpacity onPress={() => navigation.navigate('Search')}>
+          <Ionicons name="search" size={24} color="#1a1a1a" />
+        </TouchableOpacity>
       </View>
 
       {/* Recherche */}
@@ -261,7 +298,7 @@ const RecipesScreen = ({ navigation }) => {
       />
     </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
@@ -283,14 +320,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    backgroundColor: '#FFFFFF',
   },
   title: {
-    fontSize: 20,
+    fontSize: 28,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#1a1a1a',
   },
   searchBar: {
     flexDirection: 'row',
@@ -436,6 +472,12 @@ const styles = StyleSheet.create({
     marginTop: 8,
     textAlign: 'center',
   },
+  saveButton: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 8,
+  },
 });
-
-export default RecipesScreen;

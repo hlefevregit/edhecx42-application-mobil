@@ -22,11 +22,15 @@ import {
   addDoc,
   increment
 } from 'firebase/firestore';
-import { auth, db } from '../../firebaseConfig';
+import { db } from '../../firebaseConfig';
+import { useAuth } from '../../contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import QRCode from 'react-native-qrcode-svg';
 
-const KnorrShopScreen = ({ navigation }) => {
+export default function KnorrShopScreen({ navigation }) {
+  const { user } = useAuth();
+  const userId = user?.id;
+
   const [rewards, setRewards] = useState([]);
   const [userProfile, setUserProfile] = useState(null);
   const [userRewards, setUserRewards] = useState([]);
@@ -34,8 +38,6 @@ const KnorrShopScreen = ({ navigation }) => {
   const [selectedReward, setSelectedReward] = useState(null);
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
   const [showMyRewardsModal, setShowMyRewardsModal] = useState(false);
-
-  const userId = auth.currentUser?.uid;
 
   useEffect(() => {
     loadData();
@@ -863,5 +865,3 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
 });
-
-export default KnorrShopScreen;

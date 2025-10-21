@@ -14,8 +14,17 @@ class ApiService {
   }
 
   // Auth
+  async login(email, password) {
+    const r = await fetch(`${API_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    return this.handleResponse(r);
+  }
+
   async register(userData) {
-    const r = await fetch(`${API_URL}/users/register`, {
+    const r = await fetch(`${API_URL}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(userData),
@@ -23,11 +32,11 @@ class ApiService {
     return this.handleResponse(r);
   }
 
-  async login(email, password) {
-    const r = await fetch(`${API_URL}/users/login`, {
+  async googleLogin(idToken) {
+    const r = await fetch(`${API_URL}/auth/google-login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ idToken }),
     });
     return this.handleResponse(r);
   }

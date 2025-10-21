@@ -1,275 +1,282 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  TextInput,
-  TouchableOpacity,
   StyleSheet,
-  Alert,
-  KeyboardAvoidingView,
+  TouchableOpacity,
+  StatusBar,
   Platform,
-  ActivityIndicator
+  Alert,
 } from 'react-native';
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../firebaseConfig';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import googleAuthService from '../services/googleAuthService.crossplatform';
-import { useNavigation } from '../hooks/useNavigation';
-import ExpoGoWarning from '../components/ExpoGoWarning'; // Ajout de l'avertissement
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Google from 'expo-auth-session/providers/google';
+import * as WebBrowser from 'expo-web-browser';
+import apiService from '../services/apiService';
 
-const LoginScreen = () => {
-  const navigation = useNavigation();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+WebBrowser.maybeCompleteAuthSession();
+
+const COLORS = {
+  gradientStart: '#E8F5F0',
+  gradientMid: '#B8D9CE',
+  gradientEnd: '#006e3e',
+  black: '#000000',
+  white: '#FFFFFF',
+  textGray: '#6B7280',
+  google: '#4285F4',
+  facebook: '#1877F2',
+  apple: '#000000',
+};
+
+const GOOGLE_CLIENT_ID = '930883947615-3ful7pfe6k38qbdqfph7ja2lp76spahf.apps.googleusercontent.com';
+
+export default function LoginScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
-  const [showExpoWarning, setShowExpoWarning] = useState(true); // État pour l'avertissement
 
-  const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert('Erreur', 'Veuillez remplir tous les champs');
-      return;
+  // Configuration Google OAuth
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    clientId: GOOGLE_CLIENT_ID,
+    iosClientId: GOOGLE_CLIENT_ID, // Utilise le même ou un spécifique iOS
+    androidClientId: GOOGLE_CLIENT_ID, // Utilise le même ou un spécifique Android
+    webClientId: GOOGLE_CLIENT_ID,
+  });
+
+  useEffect(() => {
+    if (response?.type === 'success') {
+      handleGoogleResponse(response.authentication.idToken);
     }
+  }, [response]);
 
-    setLoading(true);
+  const handleGoogleResponse = async (idToken) => {
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      // La navigation sera gérée automatiquement par onAuthStateChanged
+      setLoading(true);
+      
+      // Envoyer le token à ton backend
+      const result = await apiService.googleLogin(idToken);
+      
+      // Sauvegarder le token JWT et les infos user
+      await AsyncStorage.setItem('authToken', result.token);
+      await AsyncStorage.setItem('userId', result.user.id);
+      await AsyncStorage.setItem('userEmail', result.user.email);
+      
+      console.log('Google login success:', result.user);
+      
+      // L'AppNavigator va détecter le token et naviguer automatiquement
+      // Ou tu peux forcer: navigation.navigate('Main')
+      
     } catch (error) {
-      console.error('Erreur connexion:', error);
-      let errorMessage = 'Erreur de connexion';
-      
-      if (error.code === 'auth/user-not-found') {
-        errorMessage = 'Aucun compte trouvé avec cet email';
-      } else if (error.code === 'auth/wrong-password') {
-        errorMessage = 'Mot de passe incorrect';
-      } else if (error.code === 'auth/invalid-email') {
-        errorMessage = 'Email invalide';
-      }
-      
-      Alert.alert('Erreur', errorMessage);
+      console.error('Google login error:', error);
+      Alert.alert('Error', 'Google sign-in failed. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleGoogleLogin = async () => {
-    setGoogleLoading(true);
+  const handleEmailSignup = () => {
+    navigation.navigate('EmailSignup');
+  };
+
+  const handleGoogleSignIn = async () => {
     try {
-      const result = await googleAuthService.signInWithGoogle();
-      
-      if (result.success) {
-        // La navigation sera gérée automatiquement par onAuthStateChanged
-        console.log('Connexion Google réussie:', result.user.email);
-      } else {
-        Alert.alert('Erreur', result.error);
-      }
+      setLoading(true);
+      await promptAsync();
     } catch (error) {
-      console.error('Erreur Google Login:', error);
-      Alert.alert('Erreur', 'Impossible de se connecter avec Google');
+      console.error('Google prompt error:', error);
+      Alert.alert('Error', 'Could not open Google sign-in');
     } finally {
-      setGoogleLoading(false);
+      setLoading(false);
     }
   };
 
+  const handleFacebookSignIn = async () => {
+    Alert.alert('Coming Soon', 'Facebook sign-in will be available soon');
+  };
+
+  const handleAppleSignIn = async () => {
+    Alert.alert('Coming Soon', 'Apple sign-in will be available soon');
+  };
+
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
-    >
+    <View style={styles.container}>
+      <StatusBar barStyle="dark-content" />
+      
+      {/* Gradient Background */}
+      <LinearGradient
+        colors={[COLORS.gradientStart, COLORS.gradientMid, COLORS.gradientEnd]}
+        style={styles.gradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      />
+
+      {/* Content */}
       <View style={styles.content}>
-        {/* Logo et titre */}
-        <View style={styles.header}>
-          <Ionicons name="cart" size={80} color="#2ecc71" />
-          <Text style={styles.title}>FoodApp</Text>
-          <Text style={styles.subtitle}>Gérez votre alimentation simplement</Text>
+        {/* Logo Section */}
+        <View style={styles.logoSection}>
+          <Text style={styles.logoText}>🍽️</Text>
+          <Text style={styles.appName}>FoodApp</Text>
         </View>
 
-        {/* Avertissement Expo Go */}
-        {showExpoWarning && <ExpoGoWarning onDismiss={() => setShowExpoWarning(false)} />}
-
-        {/* Formulaire */}
-        <View style={styles.form}>
-          <Text style={styles.label}>Email</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="votre@email.com"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoComplete="email"
-          />
-
-          <Text style={styles.label}>Mot de passe</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="••••••••"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            autoComplete="password"
-          />
-
+        {/* Buttons Section */}
+        <View style={styles.buttonsSection}>
+          {/* Email Signup Button */}
           <TouchableOpacity
-            style={[styles.button, loading && styles.buttonDisabled]}
-            onPress={handleLogin}
+            style={[styles.button, styles.primaryButton]}
+            onPress={handleEmailSignup}
             disabled={loading}
           >
-            <Text style={styles.buttonText}>
-              {loading ? 'Connexion...' : 'Se connecter'}
-            </Text>
+            <Text style={styles.primaryButtonText}>Sign up with email</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.linkContainer}
-            onPress={navigation.goToRegister}
-          >
-            <Text style={styles.linkText}>
-              Pas encore de compte ? <Text style={styles.linkBold}>S'inscrire</Text>
-            </Text>
-          </TouchableOpacity>
-
-          {/* 🧪 Bouton de test temporaire */}
-          {/* <TouchableOpacity
-            style={styles.testButton}
-            onPress={() => navigation.navigate('GoogleAuthTest')}
-          >
-            <Text style={styles.testButtonText}>🧪 Tester Google Auth</Text>
-          </TouchableOpacity> */}
-        </View>
-
-        {/* Options login social */}
-        <View style={styles.socialSection}>
-          <Text style={styles.orText}>Ou se connecter avec</Text>
-          <View style={styles.socialButtons}>
-            <TouchableOpacity
-              style={[styles.socialButton, googleLoading && styles.buttonDisabled]}
-              onPress={handleGoogleLogin}
-              disabled={googleLoading}
-            >
-              {googleLoading ? (
-                <ActivityIndicator size="small" color="#DB4437" />
-              ) : (
-                <Ionicons name="logo-google" size={24} color="#DB4437" />
-              )}
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.socialButton}
-              onPress={() => Alert.alert('Bientôt disponible', 'La connexion Apple sera disponible dans une prochaine version')}
-            >
-              <Ionicons name="logo-apple" size={24} color="#000" />
-            </TouchableOpacity>
+          {/* Divider */}
+          <View style={styles.divider}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>or use social sign up</Text>
+            <View style={styles.dividerLine} />
           </View>
+
+          {/* Google Button */}
+          <TouchableOpacity
+            style={[styles.button, styles.socialButton, loading && styles.buttonDisabled]}
+            onPress={handleGoogleSignIn}
+            disabled={loading || !request}
+          >
+            <View style={styles.socialButtonContent}>
+              <Ionicons name="logo-google" size={20} color={COLORS.google} />
+              <Text style={styles.socialButtonText}>Continue with Google</Text>
+            </View>
+          </TouchableOpacity>
+
+          {/* Facebook Button */}
+          <TouchableOpacity
+            style={[styles.button, styles.socialButton]}
+            onPress={handleFacebookSignIn}
+            disabled={loading}
+          >
+            <View style={styles.socialButtonContent}>
+              <Ionicons name="logo-facebook" size={20} color={COLORS.facebook} />
+              <Text style={styles.socialButtonText}>Continue with Facebook</Text>
+            </View>
+          </TouchableOpacity>
+
+          {/* Apple Button */}
+          <TouchableOpacity
+            style={[styles.button, styles.socialButton]}
+            onPress={handleAppleSignIn}
+            disabled={loading}
+          >
+            <View style={styles.socialButtonContent}>
+              <Ionicons name="logo-apple" size={20} color={COLORS.apple} />
+              <Text style={styles.socialButtonText}>Continue with Apple</Text>
+            </View>
+          </TouchableOpacity>
+
+          {/* Login Link */}
+          <TouchableOpacity
+            style={styles.loginLink}
+            onPress={() => navigation.navigate('EmailLogin')}
+          >
+            <Text style={styles.loginLinkText}>
+              Already have an account? <Text style={styles.loginLinkBold}>Log in</Text>
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
-    </KeyboardAvoidingView>
+    </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+  },
+  gradient: {
+    ...StyleSheet.absoluteFillObject,
   },
   content: {
     flex: 1,
+    justifyContent: 'flex-end',
+    paddingHorizontal: 24,
+    paddingBottom: Platform.OS === 'ios' ? 60 : 40,
+  },
+  logoSection: {
+    flex: 1,
     justifyContent: 'center',
-    padding: 20,
-  },
-  header: {
     alignItems: 'center',
-    marginBottom: 50,
   },
-  title: {
-    fontSize: 36,
-    fontWeight: 'bold',
-    color: '#2ecc71',
-    marginTop: 20,
+  logoText: {
+    fontSize: 80,
+    marginBottom: 16,
   },
-  subtitle: {
-    fontSize: 16,
-    color: '#666',
-    marginTop: 8,
+  appName: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: COLORS.white,
   },
-  form: {
-    marginBottom: 30,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
-    marginTop: 15,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 15,
-    fontSize: 16,
+  buttonsSection: {
+    gap: 12,
   },
   button: {
-    backgroundColor: '#2ecc71',
-    padding: 18,
-    borderRadius: 8,
+    borderRadius: 12,
+    paddingVertical: 16,
     alignItems: 'center',
-    marginTop: 30,
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  primaryButton: {
+    backgroundColor: COLORS.black,
+  },
+  primaryButtonText: {
+    color: COLORS.white,
+    fontSize: 16,
+    fontWeight: '600',
   },
   buttonDisabled: {
-    backgroundColor: '#95a5a6',
+    opacity: 0.6,
   },
-  buttonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  linkContainer: {
-    alignItems: 'center',
-    marginTop: 20,
-  },
-  linkText: {
-    fontSize: 16,
-    color: '#666',
-  },
-  linkBold: {
-    color: '#2ecc71',
-    fontWeight: 'bold',
-  },
-  socialSection: {
-    alignItems: 'center',
-  },
-  orText: {
-    fontSize: 14,
-    color: '#999',
-    marginBottom: 15,
-  },
-  socialButtons: {
+  divider: {
     flexDirection: 'row',
-    gap: 15,
+    alignItems: 'center',
+    marginVertical: 8,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  dividerText: {
+    marginHorizontal: 12,
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontWeight: '500',
   },
   socialButton: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#f5f5f5',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#ddd',
+    backgroundColor: COLORS.white,
   },
-  testButton: {
-    backgroundColor: '#6c757d',
-    padding: 12,
-    borderRadius: 8,
+  socialButtonContent: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 20,
+    gap: 12,
   },
-  testButtonText: {
-    color: '#fff',
+  socialButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.black,
+  },
+  loginLink: {
+    marginTop: 16,
+    alignItems: 'center',
+  },
+  loginLinkText: {
     fontSize: 14,
-    fontWeight: 'bold',
+    color: 'rgba(255, 255, 255, 0.9)',
+  },
+  loginLinkBold: {
+    fontWeight: '700',
+    textDecorationLine: 'underline',
   },
 });
-
-export default LoginScreen;

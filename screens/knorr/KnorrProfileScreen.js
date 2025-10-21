@@ -9,19 +9,22 @@ import {
   ActivityIndicator,
   FlatList,
   Dimensions,
-  RefreshControl
+  RefreshControl,
+  Alert,
+  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { auth } from '../../firebaseConfig';
+import { useAuth } from '../../contexts/AuthContext';
 import apiService from '../../services/apiService';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const POST_SIZE = (SCREEN_WIDTH - 6) / 3; // Grille 3 colonnes
 
 const KnorrProfileScreen = ({ route, navigation }) => {
-  const profileUserId = route.params?.userId || auth.currentUser?.uid;
-  const currentUserId = auth.currentUser?.uid;
+  const { user, logout } = useAuth();
+  const currentUserId = user?.id;
+  const profileUserId = route.params?.userId || currentUserId;
   const isOwnProfile = profileUserId === currentUserId;
 
   const [profile, setProfile] = useState(null);
@@ -63,18 +66,20 @@ const KnorrProfileScreen = ({ route, navigation }) => {
   };
 
   const handleFollow = async () => {
+    if (!profile || !currentUserId) return;
     try {
-      if (profile.followers.includes(currentUserId)) {
+      const isFollowing = profile.followers?.includes(currentUserId);
+      if (isFollowing) {
         await apiService.unfollowUser(profileUserId, currentUserId);
         setProfile({
           ...profile,
-          followers: profile.followers.filter(id => id !== currentUserId)
+          followers: profile.followers.filter(id => id !== currentUserId),
         });
       } else {
         await apiService.followUser(profileUserId, currentUserId);
         setProfile({
           ...profile,
-          followers: [...profile.followers, currentUserId]
+          followers: [...(profile.followers || []), currentUserId],
         });
       }
     } catch (error) {
@@ -112,7 +117,7 @@ const KnorrProfileScreen = ({ route, navigation }) => {
   if (loading && !profile) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#e63946" />
+        <ActivityIndicator size="large" color="#006e3e" />
         <Text style={styles.loadingText}>Chargement du profil...</Text>
       </View>
     );
@@ -121,18 +126,18 @@ const KnorrProfileScreen = ({ route, navigation }) => {
   if (!profile) {
     return (
       <View style={styles.errorContainer}>
-        <Ionicons name="alert-circle" size={64} color="#e63946" />
+        <Ionicons name="alert-circle" size={64} color="#006e3e" />
         <Text style={styles.errorText}>Profil introuvable</Text>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backButton}>Retour</Text>
+          <Text style={styles.backText}>Retour</Text>
         </TouchableOpacity>
       </View>
     );
   }
 
   const isFollowing = profile.followers?.includes(currentUserId);
-  const nextLevelXP = profile.knorrLevel * 100;
-  const xpProgress = (profile.knorrXP % 100) / 100;
+  const nextLevelXP = (profile.knorrLevel || 1) * 100;
+  const xpProgress = ((profile.knorrXP || 0) % 100) / 100;
 
   return (
     <ScrollView
@@ -140,18 +145,15 @@ const KnorrProfileScreen = ({ route, navigation }) => {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
       {/* Header avec gradient */}
-      <LinearGradient colors={['#e63946', '#c1121f']} style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
+      <LinearGradient colors={['#006e3e', '#265440']} style={styles.header}>
+        <TouchableOpacity style={styles.headerBack} onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={28} color="#fff" />
         </TouchableOpacity>
 
         {isOwnProfile && (
           <TouchableOpacity
-            style={styles.settingsButton}
-            onPress={() => navigation.navigate('Settings')}
+            style={styles.headerRight}
+            onPress={() => navigation.navigate('KnorrSettings')}
           >
             <Ionicons name="settings" size={28} color="#fff" />
           </TouchableOpacity>
@@ -163,18 +165,21 @@ const KnorrProfileScreen = ({ route, navigation }) => {
         <View style={styles.avatarContainer}>
           <Image
             source={{
-              uri: auth.currentUser?.photoURL || 'https://via.placeholder.com/120'
+              uri:
+                user?.photoURL ||
+                profile.avatarUrl ||
+                'https://via.placeholder.com/120',
             }}
             style={styles.avatar}
           />
           <View style={styles.levelBadge}>
             <Ionicons name="star" size={16} color="#f39c12" />
-            <Text style={styles.levelText}>{profile.knorrLevel}</Text>
+            <Text style={styles.levelText}>{profile.knorrLevel ?? 1}</Text>
           </View>
         </View>
 
         <Text style={styles.userName}>
-          {auth.currentUser?.displayName || 'Utilisateur Knorr'}
+          {user?.displayName || user?.name || profile.displayName || 'Utilisateur Knorr'}
         </Text>
 
         {/* XP Progress */}
@@ -183,7 +188,7 @@ const KnorrProfileScreen = ({ route, navigation }) => {
             <View style={[styles.xpBarFill, { width: `${xpProgress * 100}%` }]} />
           </View>
           <Text style={styles.xpText}>
-            {profile.knorrXP % 100} / {nextLevelXP} XP
+            {(profile.knorrXP || 0) % 100} / {nextLevelXP} XP
           </Text>
         </View>
 
@@ -202,7 +207,7 @@ const KnorrProfileScreen = ({ route, navigation }) => {
             <Text style={styles.statLabel}>Abonnements</Text>
           </View>
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>{profile.rewardPoints}</Text>
+            <Text style={styles.statValue}>{profile.rewardPoints || 0}</Text>
             <Text style={styles.statLabel}>Points</Text>
           </View>
         </View>
@@ -214,7 +219,7 @@ const KnorrProfileScreen = ({ route, navigation }) => {
             onPress={handleFollow}
           >
             <Text style={[styles.followButtonText, isFollowing && styles.followingButtonText]}>
-              {isFollowing ? 'Abonné' : 'S\'abonner'}
+              {isFollowing ? 'Abonné' : "S'abonner"}
             </Text>
           </TouchableOpacity>
         )}
@@ -223,7 +228,7 @@ const KnorrProfileScreen = ({ route, navigation }) => {
           <View style={styles.actionButtons}>
             <TouchableOpacity
               style={styles.editButton}
-              onPress={() => navigation.navigate('EditProfile', { userId: profileUserId })} // <- passe l'ID
+              onPress={() => navigation.navigate('KnorrEditProfile', { userId: profileUserId })}
             >
               <Ionicons name="create" size={20} color="#666" />
               <Text style={styles.editButtonText}>Modifier le profil</Text>
@@ -232,7 +237,7 @@ const KnorrProfileScreen = ({ route, navigation }) => {
               style={styles.rewardsButton}
               onPress={() => navigation.navigate('KnorrShop')}
             >
-              <Ionicons name="gift" size={20} color="#e63946" />
+              <Ionicons name="gift" size={20} color="#006e3e" />
               <Text style={styles.rewardsButtonText}>Boutique</Text>
             </TouchableOpacity>
           </View>
@@ -260,21 +265,13 @@ const KnorrProfileScreen = ({ route, navigation }) => {
           style={[styles.tab, selectedTab === 'grid' && styles.tabActive]}
           onPress={() => setSelectedTab('grid')}
         >
-          <Ionicons
-            name="grid"
-            size={24}
-            color={selectedTab === 'grid' ? '#e63946' : '#999'}
-          />
+          <Ionicons name="grid" size={24} color={selectedTab === 'grid' ? '#006e3e' : '#999'} />
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.tab, selectedTab === 'list' && styles.tabActive]}
           onPress={() => setSelectedTab('list')}
         >
-          <Ionicons
-            name="list"
-            size={24}
-            color={selectedTab === 'list' ? '#e63946' : '#999'}
-          />
+          <Ionicons name="list" size={24} color={selectedTab === 'list' ? '#006e3e' : '#999'} />
         </TouchableOpacity>
       </View>
 
@@ -283,7 +280,7 @@ const KnorrProfileScreen = ({ route, navigation }) => {
         <View style={styles.emptyState}>
           <Ionicons name="images-outline" size={64} color="#ccc" />
           <Text style={styles.emptyStateText}>
-            {isOwnProfile ? 'Aucun post publié' : 'Cet utilisateur n\'a pas encore publié'}
+            {isOwnProfile ? 'Aucun post publié' : "Cet utilisateur n'a pas encore publié"}
           </Text>
           {isOwnProfile && (
             <TouchableOpacity
@@ -314,9 +311,10 @@ const styles = StyleSheet.create({
   loadingText: { marginTop: 10, fontSize: 16, color: '#666' },
   errorContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
   errorText: { fontSize: 18, color: '#666', marginTop: 15, textAlign: 'center' },
-  backButton: { position: 'absolute', top: 50, left: 20, zIndex: 10 },
-  settingsButton: { position: 'absolute', top: 50, right: 20, zIndex: 10 },
-  header: { height: 150, paddingTop: 50 },
+  backText: { color: '#006e3e', marginTop: 10, fontWeight: '600' },
+  header: { height: 150, paddingTop: Platform.OS === 'ios' ? 50 : 30 },
+  headerBack: { position: 'absolute', top: 50, left: 20, zIndex: 10 },
+  headerRight: { position: 'absolute', top: 50, right: 20, zIndex: 10 },
   profileSection: { alignItems: 'center', paddingHorizontal: 20, marginTop: -60 },
   avatarContainer: { position: 'relative' },
   avatar: { width: 120, height: 120, borderRadius: 60, borderWidth: 4, borderColor: '#fff' },
@@ -331,7 +329,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#f39c12'
+    borderColor: '#f39c12',
   },
   levelText: { marginLeft: 4, fontSize: 14, fontWeight: 'bold', color: '#f39c12' },
   userName: { fontSize: 24, fontWeight: 'bold', color: '#333', marginTop: 15 },
@@ -344,15 +342,15 @@ const styles = StyleSheet.create({
   statValue: { fontSize: 20, fontWeight: 'bold', color: '#333' },
   statLabel: { fontSize: 12, color: '#999', marginTop: 4 },
   followButton: {
-    backgroundColor: '#e63946',
+    backgroundColor: '#006e3e',
     paddingVertical: 12,
     paddingHorizontal: 40,
     borderRadius: 25,
-    marginTop: 20
+    marginTop: 20,
   },
-  followingButton: { backgroundColor: '#fff', borderWidth: 2, borderColor: '#e63946' },
+  followingButton: { backgroundColor: '#fff', borderWidth: 2, borderColor: '#006e3e' },
   followButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  followingButtonText: { color: '#e63946' },
+  followingButtonText: { color: '#006e3e' },
   actionButtons: { flexDirection: 'row', gap: 10, marginTop: 20, width: '100%' },
   editButton: {
     flex: 1,
@@ -361,7 +359,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#f5f5f5',
     paddingVertical: 12,
-    borderRadius: 8
+    borderRadius: 8,
   },
   editButtonText: { marginLeft: 8, fontSize: 14, fontWeight: '600', color: '#666' },
   rewardsButton: {
@@ -371,11 +369,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#fff',
     borderWidth: 2,
-    borderColor: '#e63946',
+    borderColor: '#006e3e',
     paddingVertical: 12,
-    borderRadius: 8
+    borderRadius: 8,
   },
-  rewardsButtonText: { marginLeft: 8, fontSize: 14, fontWeight: '600', color: '#e63946' },
+  rewardsButtonText: { marginLeft: 8, fontSize: 14, fontWeight: '600', color: '#006e3e' },
   badgesSection: { width: '100%', marginTop: 20 },
   badgesSectionTitle: { fontSize: 16, fontWeight: 'bold', color: '#333', marginBottom: 10 },
   badgesRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
@@ -387,23 +385,18 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderBottomWidth: 1,
     borderColor: '#f0f0f0',
-    marginTop: 20
+    marginTop: 20,
   },
   tab: {
     flex: 1,
     paddingVertical: 15,
     alignItems: 'center',
     borderBottomWidth: 2,
-    borderBottomColor: 'transparent'
+    borderBottomColor: 'transparent',
   },
-  tabActive: { borderBottomColor: '#e63946' },
+  tabActive: { borderBottomColor: '#006e3e' },
   postsGrid: { paddingHorizontal: 1 },
-  gridPost: {
-    width: POST_SIZE,
-    height: POST_SIZE,
-    margin: 1,
-    position: 'relative'
-  },
+  gridPost: { width: POST_SIZE, height: POST_SIZE, margin: 1, position: 'relative' },
   gridPostImage: { width: '100%', height: '100%' },
   recipeBadge: {
     position: 'absolute',
@@ -411,7 +404,7 @@ const styles = StyleSheet.create({
     right: 8,
     backgroundColor: 'rgba(0,0,0,0.6)',
     borderRadius: 12,
-    padding: 4
+    padding: 4,
   },
   gridPostOverlay: {
     position: 'absolute',
@@ -421,20 +414,20 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)',
     flexDirection: 'row',
     justifyContent: 'space-around',
-    paddingVertical: 8
+    paddingVertical: 8,
   },
   gridPostStat: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   gridPostStatText: { color: '#fff', fontSize: 12, fontWeight: '600' },
   emptyState: { alignItems: 'center', paddingVertical: 60 },
   emptyStateText: { fontSize: 16, color: '#999', marginTop: 15, textAlign: 'center' },
   createPostButton: {
-    backgroundColor: '#e63946',
+    backgroundColor: '#006e3e',
     paddingVertical: 12,
     paddingHorizontal: 30,
     borderRadius: 25,
-    marginTop: 20
+    marginTop: 20,
   },
-  createPostButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' }
+  createPostButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
 });
 
 export default KnorrProfileScreen;

@@ -23,7 +23,7 @@ const COUNTRIES = [
   'France', 'Belgique', 'Suisse', 'Canada', 'États-Unis', 'Royaume-Uni', 'Espagne', 'Italie', 'Allemagne',
 ];
 
-export default function EditKnorrProfileScreen({ navigation, route }) {
+export default function KnorrEditProfileScreen({ navigation, route }) {
   const userId = route?.params?.userId; // <- plus de Firebase ici
   const [password, setPassword] = useState(''); // <- évite l’erreur de variable
   // Pense à gérer l’absence d’ID:

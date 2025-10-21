@@ -1,43 +1,23 @@
-import { useState, useEffect } from 'react';
-import { getItemStatus } from '../utils/fridgeHelpers';
+import { useMemo, useState } from 'react';
+import { getExpiryStatus } from '../utils/fridgeHelpers';
 
-export const useFridgeFilters = (fridgeItems) => {
-  const [filteredItems, setFilteredItems] = useState([]);
+export function useFridgeFilters(items) {
   const [selectedFilter, setSelectedFilter] = useState('all');
 
-  useEffect(() => {
-    let filtered = [...fridgeItems];
+  const filteredItems = useMemo(() => {
+    if (!items) return [];
     
-    switch (selectedFilter) {
-      case 'expired':
-        filtered = fridgeItems.filter(item => getItemStatus(item.expiryDate) === 'expired');
-        break;
-      case 'urgent':
-        filtered = fridgeItems.filter(item => getItemStatus(item.expiryDate) === 'urgent');
-        break;
-      case 'soon':
-        filtered = fridgeItems.filter(item => getItemStatus(item.expiryDate) === 'soon');
-        break;
-      case 'fresh':
-        filtered = fridgeItems.filter(item => getItemStatus(item.expiryDate) === 'fresh');
-        break;
-      case 'all':
-      default:
-        filtered = fridgeItems;
-    }
-    
-    filtered.sort((a, b) => {
-      if (!a.expiryDate) return 1;
-      if (!b.expiryDate) return -1;
-      return new Date(a.expiryDate) - new Date(b.expiryDate);
+    if (selectedFilter === 'all') return items;
+
+    return items.filter((item) => {
+      const status = getExpiryStatus(item.expiryDate);
+      return status === selectedFilter;
     });
-    
-    setFilteredItems(filtered);
-  }, [fridgeItems, selectedFilter]);
+  }, [items, selectedFilter]);
 
   return {
     filteredItems,
     selectedFilter,
-    setSelectedFilter
+    setSelectedFilter,
   };
-};
+}

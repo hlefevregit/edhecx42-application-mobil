@@ -14,12 +14,13 @@ import {
   Share
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { auth } from '../../firebaseConfig';
+import { useAuth } from '../../contexts/AuthContext';
 import apiService from '../../services/apiService';
 
 const KnorrPostDetailScreen = ({ route, navigation }) => {
   const { postId } = route.params;
-  const currentUserId = auth.currentUser?.uid;
+  const { user } = useAuth();
+  const currentUserId = user?.id;
 
   const [post, setPost] = useState(null);
   const [comments, setComments] = useState([]);
