@@ -1,7 +1,13 @@
 import Constants from 'expo-constants';
 
-export const API_URL = "https://edhecx42-application-mobil.onrender.com/api";
-// export const API_URL = "http://localhost:3000/api";
+// ancien
+// const API_URL = process.env.API_URL || 'http://localhost:3000/api';
+
+// nouveau
+export const API_URL =
+  (typeof process !== 'undefined' && process.env?.EXPO_PUBLIC_API_URL)
+    ? process.env.EXPO_PUBLIC_API_URL
+    : 'http://localhost:3000/api'; // fallback pour dev local
 class ApiService {
   async handleResponse(response) {
     const ct = response.headers.get('content-type');
