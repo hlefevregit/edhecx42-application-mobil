@@ -1,32 +1,38 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
+import { ActivityIndicator, View } from 'react-native';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import AppNavigator from './navigation/AppNavigator';
 import notificationService from './services/notificationService';
 
-/**
- * 🍽️ FOOD APP - Point d'entrée principal
- * Navigation organisée avec Auth local (plus de Firebase)
- */
+// ✅ hook pour charger les fonts Expo
+import { useFonts } from 'expo-font';
+import { Ionicons } from '@expo/vector-icons';
 
 function AppContent() {
   const { user } = useAuth();
 
-  useEffect(() => {
-    // 🔔 Initialiser notifications si user connecté
-    if (user) {
-      notificationService.initialize(user.id);
-    } else {
-      notificationService.cleanup();
-    }
+  React.useEffect(() => {
+    if (user) notificationService.initialize(user.id);
+    else notificationService.cleanup();
   }, [user]);
 
   return <AppNavigator />;
 }
 
 export default function App() {
-  console.log('=== App.js rendering ===');
-  
+  // ⬇️ charge la font Ionicons avant de rendre l'app
+  const [fontsLoaded] = useFonts(Ionicons.font);
+
+  if (!fontsLoaded) {
+    // petit loader pendant le chargement de la font
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
+
   return (
     <NavigationContainer>
       <AuthProvider>
