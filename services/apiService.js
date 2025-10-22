@@ -1,7 +1,7 @@
 import Constants from 'expo-constants';
 
-// export const API_URL = "https://edhecx42-application-mobil.onrender.com";
-export const API_URL = "http://localhost:3000/api";
+export const API_URL = "https://edhecx42-application-mobil.onrender.com/api";
+// export const API_URL = "http://localhost:3000/api";
 class ApiService {
   async handleResponse(response) {
     const ct = response.headers.get('content-type');
