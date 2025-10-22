@@ -45,16 +45,16 @@ app.options('*', cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ✅ Route de santé simple
-app.get('/api/health', (req, res) => res.json({ ok: true }));
 
 // Tes routes API
+app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/fridge', fridgeRoutes);
 app.use('/api/posts', postsRoutes);
 app.use('/api/knorr-profiles', knorrProfileRoutes);
-app.use('/api/auth', authRoutes);
 
+// ✅ Route de santé simple
+app.get('/api/health', (req, res) => res.json({ ok: true }));
 // Fichiers uploadés (si besoin)
 app.use('/uploads', require('express').static(path.join(__dirname, '..', 'uploads')));
 
