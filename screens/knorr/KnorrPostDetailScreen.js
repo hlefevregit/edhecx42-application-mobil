@@ -170,7 +170,7 @@ const KnorrPostDetailScreen = ({ route, navigation }) => {
         {/* Image du post */}
         {post.imageUrl && (
           <Image
-            source={{ uri: `http://localhost:3000${post.imageUrl}` }}
+            source={{ uri: `https://edhecx42-application-mobil.onrender.com${post.imageUrl}` }}
             style={styles.postImage}
             resizeMode="cover"
           />

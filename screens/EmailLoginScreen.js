@@ -62,38 +62,31 @@ export default function EmailLoginScreen({ navigation }) {
   };
 
   const handleLogin = async () => {
-    if (!validateForm()) return;
+    if (!email.trim() || !password.trim()) {
+      Alert.alert('Erreur', 'Veuillez remplir tous les champs');
+      return;
+    }
 
+    setLoading(true);
     try {
-      setLoading(true);
-      setErrors({});
+      console.log('🔑 Calling login with:', { email: email.trim(), password: '***' });
       
-      console.log('Attempting login...');
-      const result = await apiService.login(email.trim(), password);
-      console.log('API login result:', result);
+      // ❌ MAUVAIS - Si vous faites ça :
+      // await login(user, token);
+      // await login({ email, password });
       
-      // Vérifier que login existe
-      if (typeof login !== 'function') {
-        throw new Error('Login function is not available from AuthContext');
-      }
+      // ✅ BON - Faites ça :
+      await login(email.trim(), password);
       
-      // Appeler la fonction login du context
-      await login(result.user, result.token);
+      console.log('✅ Login success');
       
-      console.log('Login success:', result.user);
-      
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Main' }],
+      });
     } catch (error) {
       console.error('Login error:', error);
-      
-      let errorMessage = 'Login failed. Please try again.';
-      
-      if (error.message?.includes('Invalid email or password')) {
-        errorMessage = 'Invalid email or password';
-      } else if (error.message?.includes('not found')) {
-        errorMessage = 'No account found with this email';
-      }
-      
-      Alert.alert('Error', errorMessage);
+      Alert.alert('Erreur', error.message || 'Impossible de se connecter');
     } finally {
       setLoading(false);
     }

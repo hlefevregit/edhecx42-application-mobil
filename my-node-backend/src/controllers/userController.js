@@ -14,7 +14,7 @@ exports.getProfile = async (req, res) => {
       id: user.id,
       email: user.email,
       displayName: user.displayName || null,
-      avatarUrl: user.avatarUrl ? `http://localhost:3000${user.avatarUrl}` : null,
+      avatarUrl: user.avatarUrl ? `https://edhecx42-application-mobil.onrender.com${user.avatarUrl}` : null,
       country: user.country || null,
       dob: user.dob || null,
     });
@@ -53,7 +53,7 @@ exports.updateProfile = async (req, res) => {
       id: updated.id,
       email: updated.email,
       displayName: updated.displayName || null,
-      avatarUrl: updated.avatarUrl ? `http://localhost:3000${updated.avatarUrl}` : null,
+      avatarUrl: updated.avatarUrl ? `https://edhecx42-application-mobil.onrender.com${updated.avatarUrl}` : null,
       country: updated.country || null,
       dob: updated.dob || null,
     });

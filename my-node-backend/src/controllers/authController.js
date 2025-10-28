@@ -87,7 +87,7 @@ exports.login = async (req, res) => {
         id: user.id,
         email: user.email,
         displayName: user.displayName,
-        avatarUrl: user.avatarUrl ? `http://localhost:3000${user.avatarUrl}` : null,
+        avatarUrl: user.avatarUrl ? `https://edhecx42-application-mobil.onrender.com${user.avatarUrl}` : null,
       },
       token,
     });

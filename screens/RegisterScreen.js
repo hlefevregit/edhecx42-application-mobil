@@ -79,43 +79,36 @@ export default function RegisterScreen({ navigation, route }) {
     }
   };
 
-  const handleNext = async () => {
-    if (!email || !password) {
-      Alert.alert('Error', 'Missing email or password');
+  const handleRegister = async () => {
+    if (!email.trim() || !password.trim() || !name.trim()) {
+      Alert.alert('Erreur', 'Veuillez remplir tous les champs');
       return;
     }
 
+    if (password !== confirmPassword) {
+      Alert.alert('Erreur', 'Les mots de passe ne correspondent pas');
+      return;
+    }
+
+    setLoading(true);
     try {
-      setLoading(true);
-
-      const result = await apiService.register({
-        email,
-        password,
-        displayName: name,
-        preferences: {
-          allergies: selectedAllergies,
-          diet: selectedDiet,
-          location,
-          pushNotif,
-          promoNotif,
-        },
+      // ✅ Passer les valeurs séparément
+      const response = await apiService.register(
+        email.trim(), 
+        password, 
+        name.trim()
+      );
+      
+      console.log('Register success:', response.user);
+      
+      // Redirection
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Main' }],
       });
-
-      await login(result.user, result.token);
-
-      console.log('Registration success:', result.user);
-      
     } catch (error) {
-      console.error('Registration error:', error);
-      let errorMessage = 'Registration failed. Please try again.';
-      
-      if (error.message?.includes('already registered')) {
-        errorMessage = 'This email is already registered';
-      } else if (error.message?.includes('Invalid')) {
-        errorMessage = 'Invalid email or password format';
-      }
-      
-      Alert.alert('Error', errorMessage);
+      console.error('Register error:', error);
+      Alert.alert('Erreur', error.message || 'Impossible de créer le compte');
     } finally {
       setLoading(false);
     }
@@ -256,7 +249,7 @@ export default function RegisterScreen({ navigation, route }) {
 
           <TouchableOpacity
             style={[styles.button, styles.nextButton, loading && styles.buttonDisabled]}
-            onPress={handleNext}
+            onPress={handleRegister}
             disabled={loading}
           >
             {loading ? (

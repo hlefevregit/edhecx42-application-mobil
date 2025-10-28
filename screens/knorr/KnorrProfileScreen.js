@@ -17,6 +17,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import apiService from '../../services/apiService';
+import GamificationPanel from '../../components/GamificationPanel';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const POST_SIZE = (SCREEN_WIDTH - 6) / 3; // Grille 3 colonnes
@@ -31,7 +32,7 @@ const KnorrProfileScreen = ({ route, navigation }) => {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [selectedTab, setSelectedTab] = useState('grid'); // 'grid' ou 'list'
+  const [selectedTab, setSelectedTab] = useState('grid'); // 'grid', 'list', 'gamification'
 
   useEffect(() => {
     loadProfile();
@@ -268,6 +269,12 @@ const KnorrProfileScreen = ({ route, navigation }) => {
           <Ionicons name="grid" size={24} color={selectedTab === 'grid' ? '#006e3e' : '#999'} />
         </TouchableOpacity>
         <TouchableOpacity
+          style={[styles.tab, selectedTab === 'gamification' && styles.tabActive]}
+          onPress={() => setSelectedTab('gamification')}
+        >
+          <Ionicons name="game-controller" size={24} color={selectedTab === 'gamification' ? '#006e3e' : '#999'} />
+        </TouchableOpacity>
+        <TouchableOpacity
           style={[styles.tab, selectedTab === 'list' && styles.tabActive]}
           onPress={() => setSelectedTab('list')}
         >
@@ -275,8 +282,10 @@ const KnorrProfileScreen = ({ route, navigation }) => {
         </TouchableOpacity>
       </View>
 
-      {/* Posts Grid */}
-      {posts.length === 0 ? (
+      {/* Contenu selon le tab */}
+      {selectedTab === 'gamification' ? (
+        <GamificationPanel profile={profile} navigation={navigation} />
+      ) : posts.length === 0 ? (
         <View style={styles.emptyState}>
           <Ionicons name="images-outline" size={64} color="#ccc" />
           <Text style={styles.emptyStateText}>

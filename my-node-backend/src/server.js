@@ -1,13 +1,13 @@
 // server.js
 const express = require('express');
 const cors = require('cors');
+const multer = require('multer');
 const path = require('path');
-
-const userRoutes = require('./routes/userRoutes');
-const fridgeRoutes = require('./routes/fridgeRoutes');
-const postsRoutes = require('./routes/postsRoutes');
-const knorrProfileRoutes = require('./routes/knorrProfileRoutes');
 const authRoutes = require('./routes/authRoutes');
+const postsRoutes = require('./routes/postsRoutes');
+const feedRoutes = require('./routes/feedRoutes');
+const knorrProfilesRoutes = require('./routes/knorrProfilesRoutes');
+const fridgeRoutes = require('./routes/fridgeRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -46,24 +46,31 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 
-// Tes routes API
+// Routes
 app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/fridge', fridgeRoutes);
 app.use('/api/posts', postsRoutes);
-app.use('/api/knorr-profiles', knorrProfileRoutes);
+app.use('/api/feed', feedRoutes);
+app.use('/api/knorr-profiles', knorrProfilesRoutes);
+app.use('/api/fridge', fridgeRoutes);
 
-// ✅ Route de santé simple
-app.get('/api/health', (req, res) => res.json({ ok: true }));
-// Fichiers uploadés (si besoin)
-app.use('/uploads', require('express').static(path.join(__dirname, '..', 'uploads')));
-
-// 404 API
-app.use((req, res) => {
-  res.status(404).json({ error: 'Route not found', path: req.path });
+app.get('/', (req, res) => {
+  res.send('✅ Knorr API is running!');
 });
 
-// Launch
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
+  
+  // DEBUG: Lister toutes les routes
+  console.log('\n📍 Registered routes:');
+  app._router.stack.forEach((r) => {
+    if (r.route && r.route.path) {
+      console.log(`  ${Object.keys(r.route.methods)} ${r.route.path}`);
+    } else if (r.name === 'router') {
+      r.handle.stack.forEach((handler) => {
+        if (handler.route) {
+          console.log(`  ${Object.keys(handler.route.methods)} ${handler.route.path}`);
+        }
+      });
+    }
+  });
 });

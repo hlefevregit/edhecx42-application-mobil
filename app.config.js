@@ -37,7 +37,7 @@ export default {
       googleWebClientId: process.env.GOOGLE_WEB_CLIENT_ID,
       googleAndroidClientId: process.env.GOOGLE_ANDROID_CLIENT_ID,
       googleIosClientId: process.env.GOOGLE_IOS_CLIENT_ID,
-      apiUrl: process.env.API_URL || 'http://localhost:3000/api',
+      apiUrl: process.env.API_URL || 'https://edhecx42-application-mobil.onrender.com/api',
     }
   }
 };

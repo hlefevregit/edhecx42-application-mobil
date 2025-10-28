@@ -8,12 +8,9 @@ exports.createPost = async (req, res) => {
 
     let user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
-      user = await prisma.user.create({
-        data: { id: userId, email: `user_${userId.slice(0,8)}@temp.com`, displayName: 'Temp User' }
-      });
+      return res.status(404).json({ error: 'User not found' });
     }
 
-    // Parser le contenu JSON
     const postData = JSON.parse(content);
 
     const post = await prisma.knorrPost.create({
@@ -29,6 +26,12 @@ exports.createPost = async (req, res) => {
         cookTime: postData.cookTime || null,
         servings: postData.servings || null,
         difficulty: postData.difficulty || null,
+        
+        // NOUVEAUX CHAMPS
+        dietType: postData.dietType || null,
+        allergens: postData.allergens || null,
+        isAllergenFree: postData.isAllergenFree === 'true',
+        
         views: 0,
         likes: 0,
         shares: 0,
@@ -107,7 +110,7 @@ exports.listPosts = async (req, res) => {
         ...post,
         userName: post.user.displayName || 'Utilisateur',
         userLevel: knorrProfile?.knorrLevel || 1,
-        mediaUrl: post.imageUrl ? `http://localhost:3000${post.imageUrl}` : null,
+        mediaUrl: post.imageUrl ? `https://edhecx42-application-mobil.onrender.com${post.imageUrl}` : null,
         type: post.imageMimeType?.includes('video') ? 'video' : 'image',
         knorrProducts: post.knorrProducts ? JSON.parse(post.knorrProducts) : [],
         hashtags: post.hashtags ? post.hashtags.split(' ') : []
@@ -153,7 +156,7 @@ exports.getPost = async (req, res) => {
     const enrichedPost = {
       ...post,
       userName: post.user.displayName || 'Utilisateur',
-      mediaUrl: post.imageUrl ? `http://localhost:3000${post.imageUrl}` : null,
+      mediaUrl: post.imageUrl ? `https://edhecx42-application-mobil.onrender.com${post.imageUrl}` : null,
       type: post.imageMimeType?.includes('video') ? 'video' : 'image',
       content: postContent, // Déjà parsé
       knorrProducts: postContent.knorrProducts ? JSON.parse(postContent.knorrProducts) : [],

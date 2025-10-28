@@ -33,6 +33,8 @@ const GOOGLE_CLIENT_ID = '930883947615-3ful7pfe6k38qbdqfph7ja2lp76spahf.apps.goo
 
 export default function LoginScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
 
   // Configuration Google OAuth
   const [request, response, promptAsync] = Google.useAuthRequest({
@@ -95,6 +97,32 @@ export default function LoginScreen({ navigation }) {
 
   const handleAppleSignIn = async () => {
     Alert.alert('Coming Soon', 'Apple sign-in will be available soon');
+  };
+
+  const handleLogin = async () => {
+    if (!email.trim() || !password.trim()) {
+      Alert.alert('Erreur', 'Veuillez remplir tous les champs');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // ✅ Passer email et password séparément
+      const response = await apiService.login(email.trim(), password);
+      
+      console.log('Login success:', response.user);
+      
+      // Redirection
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Main' }],
+      });
+    } catch (error) {
+      console.error('Login error:', error);
+      Alert.alert('Erreur', error.message || 'Impossible de se connecter');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
