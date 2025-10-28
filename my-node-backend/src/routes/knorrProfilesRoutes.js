@@ -21,10 +21,10 @@ function normalizeProfile(p) {
     bio: '',
     level: p.knorrLevel ?? 1,
     points: p.rewardPoints ?? 0,
+    badges: Array.isArray(p.badges) ? p.badges : [], // ← AJOUT
     postsCount: p.totalPosts ?? 0,
     followersCount: toArrayCount(p.followers),
     followingCount: toArrayCount(p.following),
-    // Nouvelles données gamification
     currentStreak: p.currentStreak ?? 0,
     completedChallenges: p.completedChallenges ?? 0,
     leaderboardRank: p.leaderboardRank ?? null,

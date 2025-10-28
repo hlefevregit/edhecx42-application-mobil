@@ -249,7 +249,7 @@ const KnorrProfileScreen = ({ route, navigation }) => {
           <View style={styles.badgesSection}>
             <Text style={styles.badgesSectionTitle}>🏆 Badges</Text>
             <View style={styles.badgesRow}>
-              {profile.badges.map((badge, index) => (
+              {(profile?.badges ?? []).map((badge, index) => (
                 <View key={index} style={styles.badgeItem}>
                   <Text style={styles.badgeEmoji}>{badge.emoji || '🏅'}</Text>
                   <Text style={styles.badgeName}>{badge.name}</Text>
