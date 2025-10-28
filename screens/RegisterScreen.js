@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   ScrollView,
   Switch,
   ActivityIndicator,
+  TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
@@ -41,16 +42,23 @@ const DIETS = [
   'None', 'Vegan', 'Paleo', 'Dukan', 'Vegetarian'
 ];
 
-export default function RegisterScreen({ navigation, route }) {
+export default function RegisterScreen({ navigation }) {
   const { login } = useAuth();
-  const { name, email, password } = route?.params || {};
 
   const [selectedAllergies, setSelectedAllergies] = useState([]);
   const [selectedDiet, setSelectedDiet] = useState('None');
   const [location, setLocation] = useState(null);
   const [pushNotif, setPushNotif] = useState(true);
   const [promoNotif, setPromoNotif] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  // Refs pour la navigation entre inputs
+  const passwordRef = useRef(null);
+  const confirmPasswordRef = useRef(null);
 
   const toggleAllergy = (allergy) => {
     setSelectedAllergies(prev =>
@@ -80,35 +88,30 @@ export default function RegisterScreen({ navigation, route }) {
   };
 
   const handleRegister = async () => {
-    if (!email.trim() || !password.trim() || !name.trim()) {
-      Alert.alert('Erreur', 'Veuillez remplir tous les champs');
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      Alert.alert('Erreur', 'Les mots de passe ne correspondent pas');
-      return;
-    }
-
-    setLoading(true);
     try {
-      // ✅ Passer les valeurs séparément
+      setError(null);
+      if (!email || !password || !confirmPassword) {
+        return setError('Tous les champs sont requis');
+      }
+      if (password !== confirmPassword) {
+        return setError('Les mots de passe ne correspondent pas');
+      }
+      if (password.length < 6) {
+        return setError('Mot de passe trop court (min 6 caractères)');
+      }
+
+      setLoading(true);
+      // ❗ supprime name.trim() (name n'existe pas)
       const response = await apiService.register(
-        email.trim(), 
-        password, 
-        name.trim()
+        email.trim(),
+        password
       );
-      
+
       console.log('Register success:', response.user);
-      
-      // Redirection
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'Main' }],
-      });
+      navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
     } catch (error) {
       console.error('Register error:', error);
-      Alert.alert('Erreur', error.message || 'Impossible de créer le compte');
+      Alert.alert('Erreur', error?.message || 'Impossible de créer le compte');
     } finally {
       setLoading(false);
     }
@@ -236,6 +239,39 @@ export default function RegisterScreen({ navigation, route }) {
             disabled={loading}
           />
         </View>
+
+        {/* Email and Password Inputs */}
+        <TextInput
+          placeholder="Email"
+          value={email}
+          onChangeText={setEmail}
+          style={styles.input}
+          autoCapitalize="none"
+          keyboardType="email-address"
+          returnKeyType="next"
+          onSubmitEditing={() => passwordRef.current?.focus()}
+        />
+        <TextInput
+          placeholder="Mot de passe"
+          secureTextEntry
+          value={password}
+          onChangeText={setPassword}
+          style={styles.input}
+          returnKeyType="next"
+          onSubmitEditing={() => confirmPasswordRef.current?.focus()}
+          ref={passwordRef}
+        />
+        <TextInput
+          placeholder="Confirmer le mot de passe"
+          secureTextEntry
+          value={confirmPassword}
+          onChangeText={setConfirmPassword}
+          style={styles.input}
+          ref={confirmPasswordRef}
+        />
+
+        {/* Error Message */}
+        {!!error && <Text style={styles.errorText}>{error}</Text>}
 
         {/* Buttons */}
         <View style={styles.buttonsRow}>
@@ -405,5 +441,22 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.7,
+  },
+  input: {
+    height: 50,
+    borderRadius: 10,
+    backgroundColor: COLORS.pill,
+    paddingHorizontal: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    fontSize: 16,
+    color: COLORS.text,
+  },
+  errorText: {
+    color: 'red',
+    fontSize: 14,
+    marginBottom: 16,
+    textAlign: 'center',
   },
 });
